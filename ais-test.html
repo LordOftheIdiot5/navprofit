@@ -206,7 +206,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
     <div class="s-sect">
       <div class="s-hdr">
         <div class="s-title">Live stats</div>
-        <div class="s-badge" id="msgbadge">0 messages</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button onclick="reconnect()" id="reconbtn" style="display:none;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--cyan);padding:3px 8px;font-size:11px;cursor:pointer;">Reconnect</button>
+          <button onclick="forgetKey()" style="background:transparent;border:none;color:var(--muted);font-size:10px;cursor:pointer;padding:2px 4px;">Forget key</button>
+          <div class="s-badge" id="msgbadge">0 messages</div>
+        </div>
       </div>
       <div class="stats-grid">
         <div class="stat"><div class="stat-l">In view</div><div class="stat-v c" id="st">0</div></div>
@@ -218,7 +222,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
 
     <!-- FILTERS -->
     <div class="s-sect">
-      <div class="s-hdr"><div class="s-title">Filters</div></div>
+      <div class="s-hdr">
+        <div class="s-title">Filters</div>
+        <button onclick="resetFilters()" style="background:transparent;border:none;color:var(--muted);font-size:10px;cursor:pointer;">Reset all</button>
+      </div>
       <div class="filters">
         <div class="filter-label">Vessel type</div>
         <div class="filter-row">
@@ -331,8 +338,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
       <button class="obtn" onclick="connectFromOnboard()">Connect →</button>
     </div>
     <div class="onboard-note">
-      Already have a key saved? <a href="#" onclick="skipOnboard()">Skip this step →</a><br/>
-      The free tier gives you real-time AIS data for the entire world.
+      Your key is saved locally in your browser — you won't need to enter it again.<br/>
+      It is never uploaded, shared, or sent anywhere except directly to aisstream.io.<br/>
+      The free tier gives you real-time AIS data worldwide.
     </div>
   </div>
 </div>
@@ -527,6 +535,33 @@ function updateMarker(mmsi){
 }
 
 // ── AIS CONNECTION ─────────────────────────────────────────────────────
+function reconnect(){
+  if(isConnected) return;
+  var key=loadSavedKey();
+  if(key){
+    log('Reconnecting...','info');
+    connect(key);
+  } else {
+    document.getElementById('onboard').style.display='flex';
+  }
+}
+
+function forgetKey(){
+  try{localStorage.removeItem(STORAGE_KEY);}catch(e){}
+  disconnect();
+  vessels={};
+  Object.values(markers).forEach(function(m){map.removeLayer(m);});
+  markers={};
+  document.getElementById('vlist').innerHTML='<div class="empty"><div class="eico">⚓</div><div>Connect to see live vessels</div></div>';
+  closeDetail();
+  updateStats();
+  msgCount=0;
+  document.getElementById('msgbadge').textContent='0 messages';
+  document.getElementById('onboard').style.display='flex';
+  document.getElementById('okey').value='';
+  log('API key removed','warn');
+}
+
 function connectFromOnboard(){
   var key=document.getElementById('okey').value.trim();
   if(!key){
@@ -557,6 +592,7 @@ function connect(key){
       FilterMessageTypes:['PositionReport','ShipStaticData']
     }));
     isConnected=true;
+    saveKey(key);
     setStatus('connected','Live');
     document.getElementById('onboard').style.display='none';
     log('Connected — streaming vessel data','ok');
@@ -586,10 +622,16 @@ function connect(key){
   };
 }
 
+// ── MAX VESSEL CAP ─────────────────────────────────────────────────────────
+var MAX_VESSELS=1500;
+
 function handleMsg(msg){
   var meta=msg.MetaData||{};
   var mmsi=String(meta.MMSI||'');
   if(!mmsi) return;
+
+  // Cap total vessels to avoid browser slowdown
+  if(!vessels[mmsi] && Object.keys(vessels).length>=MAX_VESSELS) return;
 
   if(msg.MessageType==='PositionReport'){
     var pos=msg.Message.PositionReport;
@@ -625,6 +667,28 @@ function handleMsg(msg){
     if(markers[mmsi]) updateMarker(mmsi);
   }
 }
+
+// ── LOCALSTORAGE KEY PERSISTENCE ─────────────────────────────────────────────
+var STORAGE_KEY='navprofit_ais_key';
+
+function saveKey(key){
+  try{localStorage.setItem(STORAGE_KEY,key);}catch(e){}
+}
+
+function loadSavedKey(){
+  try{return localStorage.getItem(STORAGE_KEY)||'';}catch(e){return '';}
+}
+
+// Check for saved key on load — skip onboarding if found
+(function(){
+  var saved=loadSavedKey();
+  if(saved){
+    document.getElementById('onboard').style.display='none';
+    document.getElementById('okey').value=saved;
+    // Pre-fill sidebar too
+    setTimeout(function(){connect(saved);},500);
+  }
+})();
 
 // ── STALE VESSEL CLEANUP ─────────────────────────────────────────────────────
 setInterval(function(){
@@ -708,8 +772,58 @@ function selectVessel(mmsi){
     ['Last seen',v.updated?timeSince(v.updated):'—'],
   ].map(function(r){
     return '<div class="drow"><span class="dlbl">'+r[0]+'</span><span class="dval">'+r[1]+'</span></div>';
-  }).join('');
+  }).join('')
+  +'<div style="margin-top:10px;display:flex;gap:6px;">'
+  +'<button onclick="addToFleet(\''+mmsi+'\')" style="flex:1;background:var(--cyan);border:none;border-radius:8px;color:#fff;padding:8px;font-family:\'DM Sans\',sans-serif;font-size:12px;font-weight:500;cursor:pointer;">+ Add to fleet</button>'
+  +'<button onclick="copyMMSI(\''+v.mmsi+'\')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text2);padding:8px 12px;font-family:\'DM Sans\',sans-serif;font-size:12px;cursor:pointer;">Copy MMSI</button>'
+  +'</div>';
   renderList();
+}
+
+function addToFleet(mmsi){
+  var v=vessels[mmsi];
+  if(!v) return;
+  // Save to localStorage fleet list
+  try{
+    var fleet=JSON.parse(localStorage.getItem('navprofit_fleet')||'[]');
+    var exists=fleet.some(function(f){return f.mmsi===mmsi;});
+    if(exists){
+      showToast(v.name+' is already in your fleet','amber');
+      return;
+    }
+    fleet.push({
+      mmsi:v.mmsi,
+      name:v.name||'MMSI '+v.mmsi,
+      imo:v.imo||'',
+      callSign:v.callSign||'',
+      shipType:v.shipType||0,
+      addedAt:new Date().toISOString()
+    });
+    localStorage.setItem('navprofit_fleet',JSON.stringify(fleet));
+    showToast('✓ '+v.name+' added to fleet','green');
+    log('Added '+v.name+' to fleet','ok');
+  }catch(e){
+    showToast('Could not save to fleet','red');
+  }
+}
+
+function copyMMSI(mmsi){
+  navigator.clipboard&&navigator.clipboard.writeText(mmsi).then(function(){
+    showToast('MMSI '+mmsi+' copied','green');
+  });
+}
+
+function showToast(msg,color){
+  var colors={green:'#047857',amber:'#b45309',red:'#dc2626'};
+  var el=document.createElement('div');
+  el.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);'
+    +'background:var(--surface);border:1px solid '+(colors[color]||colors.green)+';'
+    +'color:'+(colors[color]||colors.green)+';border-radius:8px;padding:10px 20px;'
+    +'font-family:DM Sans,sans-serif;font-size:13px;font-weight:500;z-index:9999;'
+    +'box-shadow:0 4px 20px rgba(0,0,0,0.3);pointer-events:none;';
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(function(){el.remove();},2500);
 }
 
 function closeDetail(){
@@ -723,6 +837,17 @@ function closeDetail(){
 }
 
 // ── FILTERS ─────────────────────────────────────────────────────
+function resetFilters(){
+  setFilter('all');
+  minSpeed=0;
+  document.getElementById('speed-filter').value=0;
+  document.getElementById('speed-val').textContent='0 kn';
+  document.getElementById('vsq').value='';
+  searchQ='';
+  renderList();
+  log('Filters reset','info');
+}
+
 function setFilter(type){
   filterType=type;
   ['all','cargo','tanker','fishing','passenger','tug'].forEach(function(t){
@@ -749,19 +874,23 @@ function updateStats(){
   var all=Object.values(vessels).filter(function(v){return v.lat;});
   var moving=all.filter(function(v){return (v.speedKnots||0)>1;}).length;
   var stopped=all.filter(function(v){return v.navStatus===1;}).length;
-  document.getElementById('st').textContent=all.length;
+  var atCap=all.length>=MAX_VESSELS;
+  document.getElementById('st').textContent=all.length+(atCap?' (cap)':'');
   document.getElementById('sm').textContent=moving;
   document.getElementById('ss').textContent=stopped;
+  if(document.getElementById('su')) document.getElementById('su').textContent=Math.max(0,all.length-moving-stopped);
 }
 
 // ── STATUS + LOG ─────────────────────────────────────────────────────
 function setStatus(state,text){
   var pill=document.getElementById('spill');
   var dot=document.getElementById('sdot');
+  var rbtn=document.getElementById('reconbtn');
   pill.className='status-pill '+(state==='connected'?'connected':state==='error'?'error':'disconnected');
   dot.className='sdot'+(state==='connected'?' blink':'');
   document.getElementById('stxt').textContent=text;
   document.title='NavProfit AIS'+(state==='connected'?' ●':'');
+  if(rbtn) rbtn.style.display=(state==='disconnected'||state==='error')?'block':'none';
 }
 
 function log(msg,type){
