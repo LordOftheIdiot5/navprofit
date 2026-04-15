@@ -1,140 +1,198 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>NavProfit — Maritime Financial Intelligence</title>
+<title>NavProfit — Maritime Intelligence</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --bg:#080c10;--surface:#0d1219;--surface2:#111820;--border:#1c2730;--border2:#243040;
-  --text:#d4e4f0;--muted:#4a6070;--faint:#1e2d3a;
+
+/* ── THEME ──────────────────────────────────────────────── */
+[data-theme="dark"]{
+  --bg:#080c10;--surface:#0d1219;--surface2:#111820;--surface3:#161f28;
+  --border:#1c2730;--border2:#243040;
+  --text:#d4e4f0;--text2:#7a9ab0;--muted:#4a6070;--faint:#1e2d3a;
   --cyan:#38b2d8;--green:#2dd4a0;--amber:#f5a623;--red:#f05252;--purple:#a78bfa;
-  --font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;
+  --pill-g-bg:#0a2a1e;--pill-g-border:#1a4a36;--pill-g-text:#2dd4a0;
+  --pill-a-bg:#2a1e00;--pill-a-border:#4a3800;--pill-a-text:#f5a623;
+  --pill-b-bg:#0a1a3a;--pill-b-border:#1a3a6a;--pill-b-text:#7ab4f0;
+  --pill-r-bg:#2a0a0a;--pill-r-border:#4a1a1a;--pill-r-text:#f05252;
+  --tile-f:brightness(0.85) saturate(0.6);
 }
-html,body{background:var(--bg);min-height:100vh;}
-body{color:var(--text);font-family:var(--font);font-size:14px;}
-/* TOPBAR */
-.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:200;}
+[data-theme="light"]{
+  --bg:#f0f4f8;--surface:#ffffff;--surface2:#f8fafc;--surface3:#f1f5f9;
+  --border:#e2e8f0;--border2:#cbd5e1;
+  --text:#1e293b;--text2:#475569;--muted:#94a3b8;--faint:#f1f5f9;
+  --cyan:#0369a1;--green:#047857;--amber:#b45309;--red:#dc2626;--purple:#7c3aed;
+  --pill-g-bg:#f0fdf4;--pill-g-border:#bbf7d0;--pill-g-text:#15803d;
+  --pill-a-bg:#fffbeb;--pill-a-border:#fde68a;--pill-a-text:#92400e;
+  --pill-b-bg:#eff6ff;--pill-b-border:#bfdbfe;--pill-b-text:#1d4ed8;
+  --pill-r-bg:#fef2f2;--pill-r-border:#fecaca;--pill-r-text:#b91c1c;
+  --tile-f:none;
+}
+
+html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;transition:background 0.25s,color 0.25s;}
+
+/* ── TOPBAR ──────────────────────────────────────────────── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:500;transition:background 0.25s,border-color 0.25s;}
 .brand{display:flex;align-items:center;gap:10px;}
-.brand-mark{width:28px;height:28px;border-radius:6px;background:#0d2a3a;border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:14px;}
-.brand-name{font-family:var(--mono);font-size:15px;font-weight:500;letter-spacing:0.5px;}
+.brand-mark{width:28px;height:28px;border-radius:6px;background:var(--faint);border:1px solid var(--cyan);display:flex;align-items:center;justify-content:center;font-size:14px;}
+.brand-name{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;letter-spacing:0.5px;color:var(--text);}
 .brand-name span{color:var(--muted);}
 .topbar-center{display:flex;gap:2px;}
-.tnav{font-family:var(--font);font-size:13px;padding:6px 14px;border-radius:6px;cursor:pointer;color:var(--muted);border:none;background:transparent;transition:all 0.15s;position:relative;}
+.tnav{font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 14px;border-radius:6px;cursor:pointer;color:var(--muted);border:none;background:transparent;transition:all 0.15s;position:relative;}
 .tnav:hover{color:var(--text);background:var(--faint);}
 .tnav.active{color:var(--cyan);background:var(--faint);}
-.tnav .dot{width:5px;height:5px;background:var(--red);border-radius:50%;position:absolute;top:5px;right:8px;}
-.topbar-right{display:flex;align-items:center;gap:12px;}
-.live-pill{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--green);background:#0a2a1e;border:1px solid #1a4a36;border-radius:20px;padding:4px 10px;}
+.tnav .ndot{width:5px;height:5px;background:var(--red);border-radius:50%;position:absolute;top:5px;right:8px;}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.live-pill{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:11px;color:var(--green);background:var(--pill-g-bg);border:1px solid var(--pill-g-border);border-radius:20px;padding:4px 10px;}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.2;}}
-.utc{font-family:var(--mono);font-size:11px;color:var(--muted);}
-.curr-select{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:11px;padding:4px 8px;outline:none;cursor:pointer;}
-/* PAGES */
+.live-dot.off{background:var(--muted);animation:none;}
+.utc{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);}
+.curr-sel{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;padding:4px 8px;outline:none;cursor:pointer;}
+.theme-btn{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:5px 10px;font-size:12px;cursor:pointer;transition:all 0.15s;}
+.theme-btn:hover{border-color:var(--border2);}
+
+/* ── PAGES ──────────────────────────────────────────────── */
 .page{display:none;}.page.active{display:block;}
 .main{padding:16px 20px;}
-/* METRICS */
-.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:16px;}
+
+/* ── KPI GRID ──────────────────────────────────────────────── */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px;}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;transition:border 0.2s;}
 .kpi:hover{border-color:var(--border2);}
 .kpi-label{font-size:11px;color:var(--muted);margin-bottom:8px;}
-.kpi-val{font-family:var(--mono);font-size:20px;font-weight:500;line-height:1;}
+.kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;line-height:1;color:var(--text);}
 .kpi-val.g{color:var(--green);}.kpi-val.a{color:var(--amber);}.kpi-val.r{color:var(--red);}.kpi-val.c{color:var(--cyan);}
-.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;font-family:var(--mono);}
-/* GRID */
+.kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;font-family:'DM Mono',monospace;}
+
+/* ── GRID LAYOUTS ──────────────────────────────────────────────── */
 .grid-2{display:grid;grid-template-columns:1fr 300px;gap:12px;margin-bottom:12px;}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
 .grid-eq{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
-/* PANEL */
-.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.fleet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+
+/* ── PANEL ──────────────────────────────────────────────── */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;transition:background 0.25s,border-color 0.25s;}
 .ph{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .ph-title{font-size:12px;font-weight:500;color:var(--muted);letter-spacing:0.5px;}
 .pb{padding:16px;}.pb-sm{padding:12px 16px;}
-/* MAP */
-.map-box{height:260px;background:#04080c;position:relative;overflow:hidden;}
-/* INSIGHT */
-.insight{background:#071520;border:1px solid #1a3a5a;border-left:2px solid var(--cyan);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;}
+
+/* ── LIVE MAP ──────────────────────────────────────────────── */
+.map-box{height:280px;background:var(--surface2);position:relative;overflow:hidden;}
+.map-box .leaflet-container{background:#04080c!important;}
+.leaflet-tile{filter:var(--tile-f)!important;}
+.leaflet-control-zoom a{background:var(--surface)!important;color:var(--text)!important;border-color:var(--border)!important;font-weight:400!important;}
+.leaflet-control-attribution{background:rgba(0,0,0,0.5)!important;color:var(--muted)!important;font-size:9px!important;}
+.leaflet-control-attribution a{color:var(--muted)!important;}
+.vtt{background:var(--surface)!important;border:1px solid var(--border2)!important;border-radius:5px!important;color:var(--text)!important;font-family:'DM Mono',monospace!important;font-size:11px!important;padding:3px 8px!important;box-shadow:0 2px 8px rgba(0,0,0,0.3)!important;white-space:nowrap;}
+.vtt::before{display:none!important;}
+.leaflet-popup-content-wrapper{background:var(--surface)!important;border:1px solid var(--border2)!important;border-radius:10px!important;color:var(--text)!important;box-shadow:0 4px 20px rgba(0,0,0,0.3)!important;}
+.leaflet-popup-tip{background:var(--surface)!important;}
+.leaflet-popup-content{margin:12px 16px!important;font-family:'DM Sans',sans-serif!important;}
+.pname{font-weight:600;color:var(--cyan);margin-bottom:8px;font-size:14px;}
+.prow{display:flex;justify-content:space-between;gap:16px;padding:3px 0;border-bottom:1px solid var(--faint);font-size:12px;}
+.prow:last-child{border-bottom:none;}
+.plbl{color:var(--muted);}.pval{font-family:'DM Mono',monospace;color:var(--text);}
+
+/* ── INSIGHT ──────────────────────────────────────────────── */
+.insight{background:var(--surface);border:1px solid var(--border);border-left:2px solid var(--cyan);border-radius:8px;padding:10px 14px;margin-bottom:14px;display:flex;gap:10px;}
 .insight-ico{color:var(--cyan);font-size:13px;flex-shrink:0;margin-top:1px;}
-.insight-text{font-size:12px;color:#7ab0cc;line-height:1.6;}
+.insight-text{font-size:12px;color:var(--text2);line-height:1.6;}
 .insight-text strong{color:var(--cyan);font-weight:500;}
-/* VESSEL DETAIL */
+
+/* ── VESSEL DETAIL ROWS ──────────────────────────────────────────────── */
 .drow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--faint);}
 .drow:last-child{border-bottom:none;}
 .drow.clickable{cursor:pointer;border-radius:6px;padding:8px;margin:0 -8px;}
 .drow.clickable:hover{background:var(--faint);}
-.drow.sel{background:#0a1f2e!important;}
+.drow.sel{background:var(--faint)!important;border-left:2px solid var(--cyan);padding-left:6px;}
 .dlabel{font-size:11px;color:var(--muted);}
-.dval{font-family:var(--mono);font-size:12px;color:var(--text);}
+.dval{font-family:'DM Mono',monospace;font-size:12px;color:var(--text);}
+
+/* ── MARGIN BAR ──────────────────────────────────────────────── */
 .margin-bar{height:4px;background:var(--faint);border-radius:2px;margin:12px 0 6px;overflow:hidden;}
-.margin-fill{height:100%;border-radius:2px;background:var(--green);transition:width 1s ease;}
-/* PILL */
+.margin-fill{height:100%;border-radius:2px;transition:width 1s ease;}
+
+/* ── PILLS ──────────────────────────────────────────────── */
 .pill{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:500;display:inline-block;}
-.pill-g{background:#0a2a1e;color:var(--green);border:1px solid #1a4a36;}
-.pill-a{background:#2a1e00;color:var(--amber);border:1px solid #4a3800;}
-.pill-b{background:#0a1a3a;color:#7ab4f0;border:1px solid #1a3a6a;}
-.pill-r{background:#2a0a0a;color:var(--red);border:1px solid #4a1a1a;}
-/* FUEL TABLE */
+.pill-g{background:var(--pill-g-bg);color:var(--pill-g-text);border:1px solid var(--pill-g-border);}
+.pill-a{background:var(--pill-a-bg);color:var(--pill-a-text);border:1px solid var(--pill-a-border);}
+.pill-b{background:var(--pill-b-bg);color:var(--pill-b-text);border:1px solid var(--pill-b-border);}
+.pill-r{background:var(--pill-r-bg);color:var(--pill-r-text);border:1px solid var(--pill-r-border);}
+
+/* ── FUEL TABLE ──────────────────────────────────────────────── */
 .ftable{width:100%;border-collapse:collapse;}
 .ftable th{font-size:11px;color:var(--muted);text-align:left;padding:0 0 8px;border-bottom:1px solid var(--border);font-weight:400;}
 .ftable td{padding:9px 0;border-bottom:1px solid var(--faint);font-size:13px;}
 .ftable tr:last-child td{border-bottom:none;}
 .port-n{font-weight:500;color:var(--text);}
-.price-n{font-family:var(--mono);font-size:13px;color:var(--cyan);}
-.chg-up{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:4px;background:#2a0a0a;color:var(--red);}
-.chg-dn{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:4px;background:#0a2a1e;color:var(--green);}
-/* INVOICE */
+.price-n{font-family:'DM Mono',monospace;font-size:13px;color:var(--cyan);}
+.chg-up{font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:4px;background:var(--pill-r-bg);color:var(--red);}
+.chg-dn{font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:4px;background:var(--pill-g-bg);color:var(--green);}
+
+/* ── INVOICES ──────────────────────────────────────────────── */
 .irow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--faint);}
 .irow:last-child{border-bottom:none;}
 .iico{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
-.iico-f{background:#2a1e00;}.iico-p{background:#0a1a3a;}.iico-a{background:#0a2a1e;}
+.iico-f{background:var(--pill-a-bg);}.iico-p{background:var(--pill-b-bg);}.iico-a{background:var(--pill-g-bg);}
 .iname{font-size:13px;color:var(--text);}
-.imeta{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px;}
-.iamt{font-family:var(--mono);font-size:13px;color:var(--red);text-align:right;}
-/* CHART */
+.imeta{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px;}
+.iamt{font-family:'DM Mono',monospace;font-size:13px;color:var(--red);text-align:right;}
+
+/* ── CHART ──────────────────────────────────────────────── */
 .chart-wrap{position:relative;height:180px;}
-/* FORMS */
+
+/* ── FORMS ──────────────────────────────────────────────── */
 .fgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .fg{margin-bottom:14px;}
 .flabel{font-size:11px;color:var(--muted);display:block;margin-bottom:6px;}
-.finput{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-family:var(--mono);font-size:13px;outline:none;transition:border 0.15s;}
+.finput{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;transition:border 0.15s;}
 .finput:focus{border-color:var(--cyan);}
-.fselect{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-family:var(--mono);font-size:13px;outline:none;appearance:none;cursor:pointer;}
-.btn{font-family:var(--font);font-size:13px;font-weight:500;padding:9px 20px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:none;}
-.btn-p{background:var(--cyan);color:#040c14;}.btn-p:hover{background:#52c8e8;}
+.fselect{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 12px;font-family:'DM Mono',monospace;font-size:13px;outline:none;appearance:none;cursor:pointer;}
+.btn{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;padding:9px 20px;border-radius:8px;cursor:pointer;transition:all 0.15s;border:none;}
+.btn-p{background:var(--cyan);color:#fff;}.btn-p:hover{opacity:0.9;}
 .btn-s{background:transparent;border:1px solid var(--border2);color:var(--muted);}.btn-s:hover{border-color:var(--cyan);color:var(--cyan);}
-.btn-danger{background:transparent;border:1px solid #2a1414;color:var(--red);font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer;}.btn-danger:hover{background:#1a0a0a;}
-/* ESTIMATE */
-.est-box{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px;}
+.btn-danger{background:transparent;border:1px solid var(--pill-r-border);color:var(--red);font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer;}
+
+/* ── ESTIMATE ──────────────────────────────────────────────── */
 .est-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--faint);font-size:13px;}
 .est-row:last-child{border-bottom:none;}
-.est-l{color:var(--muted);font-size:11px;}.est-v{font-family:var(--mono);color:var(--text);}
+.est-l{color:var(--muted);font-size:11px;}.est-v{font-family:'DM Mono',monospace;color:var(--text);}
 .warn-box{border-radius:6px;padding:8px 12px;font-size:12px;margin-top:8px;}
-.warn-r{background:#1a0808;border:1px solid #3a1a1a;color:#f08080;}
-.warn-a{background:#1a1200;border:1px solid #3a2800;color:#e0a030;}
-/* ALERTS */
+.warn-r{background:var(--pill-r-bg);border:1px solid var(--pill-r-border);color:var(--red);}
+.warn-a{background:var(--pill-a-bg);border:1px solid var(--pill-a-border);color:var(--amber);}
+
+/* ── ALERTS ──────────────────────────────────────────────── */
 .arow{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--faint);}
 .arow:last-child{border-bottom:none;}
 .adot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .adot-g{background:var(--green);animation:blink 2.5s infinite;}
-.adot-r{background:var(--red);}
-.adot-m{background:var(--muted);}
+.adot-r{background:var(--red);}.adot-m{background:var(--muted);}
 .aname{font-size:13px;color:var(--text);margin-bottom:2px;}
-.adesc{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.adesc{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;}
 .toggle{width:34px;height:18px;border-radius:9px;border:none;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0;}
-.toggle.on{background:#0a3a26;border:1px solid #1a5a3a;}.toggle.off{background:var(--faint);border:1px solid var(--border);}
+.toggle.on{background:var(--pill-g-bg);border:1px solid var(--pill-g-border);}
+.toggle.off{background:var(--faint);border:1px solid var(--border);}
 .tthumb{width:12px;height:12px;border-radius:50%;position:absolute;top:2px;transition:left 0.2s;}
-.toggle.on .tthumb{left:18px;background:var(--green);}.toggle.off .tthumb{left:2px;background:var(--muted);}
+.toggle.on .tthumb{left:18px;background:var(--green);}
+.toggle.off .tthumb{left:2px;background:var(--muted);}
 .nrow{display:flex;gap:10px;padding:10px 16px;border-bottom:1px solid var(--faint);}
 .nrow:last-child{border-bottom:none;}
-.ndot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:5px;}
-.ntext{font-size:12px;color:#7ab0cc;line-height:1.5;}
-.ntime{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;}
-/* FLEET */
-.fleet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.ndot2{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:5px;}
+.ntext{font-size:12px;color:var(--text2);line-height:1.5;}
+.ntime{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:3px;}
+.atype-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;}
+.atype{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;transition:all 0.15s;}
+.atype:hover{border-color:var(--border2);}.atype.sel{background:var(--faint);border-color:var(--cyan);}
+.atype-ico{font-size:18px;margin-bottom:4px;}.atype-l{font-size:10px;color:var(--muted);}
+
+/* ── FLEET CARDS ──────────────────────────────────────────────── */
 .vc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;transition:border 0.2s;}
 .vc:hover{border-color:var(--border2);}
 .vc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;}
@@ -143,70 +201,69 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
 .vc-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .vc-stat{background:var(--surface2);border-radius:6px;padding:8px 10px;}
 .vc-stat-l{font-size:10px;color:var(--muted);margin-bottom:3px;}
-.vc-stat-v{font-family:var(--mono);font-size:13px;color:var(--text);}
+.vc-stat-v{font-family:'DM Mono',monospace;font-size:13px;color:var(--text);}
 .vc-actions{display:flex;gap:6px;margin-top:12px;}
 .add-placeholder{background:var(--surface);border:1px dashed var(--border2);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;cursor:pointer;gap:8px;min-height:200px;}
 .add-placeholder:hover{border-color:var(--cyan);}
 .add-placeholder span:first-child{font-size:28px;color:var(--border2);}
 .add-placeholder span:last-child{font-size:13px;color:var(--muted);}
-/* MODAL */
-.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:500;display:flex;align-items:center;justify-content:center;}
+
+/* ── MODAL ──────────────────────────────────────────────── */
+.modal-bg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;}
 .modal{background:var(--surface);border:1px solid var(--border2);border-radius:12px;width:480px;max-width:95vw;max-height:90vh;overflow-y:auto;}
 .modal-h{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.modal-title{font-size:15px;font-weight:500;}
+.modal-title{font-size:15px;font-weight:500;color:var(--text);}
 .modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1;}
 .modal-body{padding:20px;}
 .modal-footer{padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
-/* ALERT TYPES */
-.atype-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;}
-.atype{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;cursor:pointer;text-align:center;transition:all 0.15s;}
-.atype:hover{border-color:var(--border2);}.atype.sel{background:#071520;border-color:var(--cyan);}
-.atype-ico{font-size:18px;margin-bottom:4px;}.atype-l{font-size:10px;color:var(--muted);}
-/* FLASH */
-.flash{position:fixed;top:60px;right:16px;border-radius:8px;padding:10px 16px;font-size:13px;z-index:999;font-family:var(--font);pointer-events:none;}
-.flash-g{background:#071a10;border:1px solid var(--green);color:var(--green);}
-.flash-c{background:#071520;border:1px solid var(--cyan);color:var(--cyan);}
-.flash-r{background:#1a0808;border:1px solid var(--red);color:var(--red);}
-/* RESPONSIVE */
+
+/* ── FLASH TOAST ──────────────────────────────────────────────── */
+.flash{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);border-radius:8px;padding:10px 20px;font-size:13px;font-weight:500;z-index:9999;pointer-events:none;transition:opacity 0.3s;}
+
+/* ── RESPONSIVE ──────────────────────────────────────────────── */
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(3,1fr);}.fleet-grid{grid-template-columns:repeat(2,1fr);}}
-@media(max-width:680px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.grid-2,.grid-3,.grid-eq,.fgrid{grid-template-columns:1fr;}.fleet-grid{grid-template-columns:1fr;}.topbar-center .tnav-label{display:none;}.utc{display:none;}}
+@media(max-width:680px){.kpi-grid{grid-template-columns:repeat(2,1fr);}.grid-2,.grid-3,.grid-eq,.fgrid{grid-template-columns:1fr;}.fleet-grid{grid-template-columns:1fr;}.utc{display:none;}}
 </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
+<!-- ── TOPBAR ────────────────────────────────────────────── -->
 <div class="topbar">
   <div class="brand">
     <div class="brand-mark">⚓</div>
     <div class="brand-name">Nav<span>Profit</span></div>
   </div>
   <div class="topbar-center">
-    <button class="tnav active" onclick="gotoPage('dashboard',this)"><span class="tnav-label">Overview</span></button>
-    <button class="tnav" onclick="gotoPage('fleet',this)"><span class="tnav-label">Fleet</span></button>
-    <button class="tnav" onclick="gotoPage('voyage',this)"><span class="tnav-label">Voyage planner</span></button>
-    <button class="tnav" onclick="gotoPage('alerts',this)"><span class="tnav-label">Alerts</span><span class="dot"></span></button>
+    <button class="tnav active" onclick="gotoPage('dashboard',this)">Overview</button>
+    <button class="tnav" onclick="gotoPage('fleet',this)">Fleet</button>
+    <button class="tnav" onclick="gotoPage('voyage',this)">Voyage planner</button>
+    <button class="tnav" onclick="gotoPage('alerts',this)">Alerts<span class="ndot"></span></button>
   </div>
   <div class="topbar-right">
-    <select class="curr-select" id="curr-sel" onchange="setCurrency(this.value)">
-      <option value="NOK">NOK</option>
-      <option value="USD">USD</option>
-      <option value="EUR">EUR</option>
-      <option value="GBP">GBP</option>
-      <option value="SGD">SGD</option>
+    <select class="curr-sel" id="curr-sel" onchange="setCurrency(this.value)">
+      <option value="NOK">NOK</option><option value="USD">USD</option>
+      <option value="EUR">EUR</option><option value="GBP">GBP</option><option value="SGD">SGD</option>
     </select>
-    <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+    <div class="live-pill">
+      <div class="live-dot" id="ais-dot"></div>
+      <span id="ais-status">AIS offline</span>
+    </div>
     <div class="utc" id="clk">--:--:-- UTC</div>
+    <button class="theme-btn" id="themebtn" onclick="toggleTheme()">☀ Light</button>
   </div>
 </div>
 
-<!-- ═══════════════ DASHBOARD ═══════════════ -->
+<!-- ══════════════════════════════════════════════════════════
+     DASHBOARD PAGE
+══════════════════════════════════════════════════════════ -->
 <div class="page active" id="page-dashboard">
 <div class="main">
+
   <div class="kpi-grid">
     <div class="kpi"><div class="kpi-label">Fleet P&L today</div><div class="kpi-val g" id="kpi-pnl">+84,320</div><div class="kpi-sub" id="kpi-curr">NOK · 4 voyages</div></div>
     <div class="kpi"><div class="kpi-label">Avg bunker/nm</div><div class="kpi-val a">142</div><div class="kpi-sub">NOK/nm · VLSFO</div></div>
     <div class="kpi"><div class="kpi-label">Pending invoices</div><div class="kpi-val c">218,500</div><div class="kpi-sub">NOK · 4 open</div></div>
-    <div class="kpi"><div class="kpi-label">Vessels at sea</div><div class="kpi-val">3 / 5</div><div class="kpi-sub">2 in port</div></div>
+    <div class="kpi"><div class="kpi-label">Vessels live</div><div class="kpi-val" id="kpi-vessels">0</div><div class="kpi-sub" id="kpi-vessels-sub">AIS offline</div></div>
     <div class="kpi"><div class="kpi-label">Alerts</div><div class="kpi-val r">2</div><div class="kpi-sub">triggered now</div></div>
   </div>
 
@@ -215,58 +272,23 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
     <div class="insight-text"><strong>AI insight —</strong> Rotterdam VLSFO is $23/MT below Singapore today. Vessels transiting via Suez should consider bunkering at Rotterdam. Estimated fleet saving: <strong id="ins-saving">NOK 44,200</strong> this month.</div>
   </div>
 
-  <div class="grid-2">
+  <!-- MAP + VESSEL DETAIL -->
+  <div class="grid-2" style="margin-bottom:12px;">
     <div class="panel">
-      <div class="ph"><div class="ph-title">Global vessel positions</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">AIS · 5 vessels</div></div>
-      <div class="map-box">
-        <svg width="100%" height="100%" viewBox="0 0 640 260" preserveAspectRatio="xMidYMid meet">
-          <rect width="640" height="260" fill="#04080c"/>
-          <line x1="0" y1="65" x2="640" y2="65" stroke="#0d1a24" stroke-width="0.5"/>
-          <line x1="0" y1="130" x2="640" y2="130" stroke="#0d1a24" stroke-width="0.5"/>
-          <line x1="0" y1="195" x2="640" y2="195" stroke="#0d1a24" stroke-width="0.5"/>
-          <line x1="128" y1="0" x2="128" y2="260" stroke="#0d1a24" stroke-width="0.5"/>
-          <line x1="256" y1="0" x2="256" y2="260" stroke="#0d1a24" stroke-width="0.5"/>
-          <line x1="384" y1="0" x2="384" y2="260" stroke="#0d1a24" stroke-width="0.5"/>
-          <line x1="512" y1="0" x2="512" y2="260" stroke="#0d1a24" stroke-width="0.5"/>
-          <path d="M290 10 L300 18 L295 35 L305 55 L300 75 L312 95 L308 115 L318 135 L314 155 L320 175 L316 195 L322 210 L310 220 L295 215 L285 200 L280 180 L290 160 L285 140 L295 120 L288 100 L298 80 L292 60 L300 40 L295 20 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <path d="M268 60 L278 55 L285 68 L280 88 L272 98 L265 85 L268 70 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <path d="M230 175 L400 175 L405 260 L225 260 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <path d="M50 30 L80 25 L95 45 L88 70 L95 100 L85 130 L90 160 L80 185 L70 175 L65 150 L75 120 L68 90 L75 65 L65 45 L55 38 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <path d="M55 195 L80 190 L90 220 L82 250 L65 255 L52 240 L50 215 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <path d="M420 10 L580 15 L595 60 L580 100 L570 140 L555 170 L530 175 L510 160 L490 140 L475 120 L460 100 L448 80 L440 60 L430 40 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <path d="M540 170 L565 165 L578 185 L570 205 L550 210 L538 195 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <path d="M530 195 L590 188 L605 220 L598 248 L565 255 L535 248 L522 225 Z" fill="#111e2a" stroke="#1c2f40" stroke-width="0.5"/>
-          <circle cx="298" cy="95" r="3" fill="#1c3a50" stroke="#38b2d8" stroke-width="1"/>
-          <text x="304" y="92" fill="#4a6070" font-size="8" font-family="'DM Mono',monospace">BERGEN</text>
-          <circle cx="260" cy="130" r="3" fill="#1c3a50" stroke="#38b2d8" stroke-width="1"/>
-          <text x="266" y="127" fill="#4a6070" font-size="8" font-family="'DM Mono',monospace">ROTTERDAM</text>
-          <circle cx="320" cy="158" r="3" fill="#1c3a50" stroke="#38b2d8" stroke-width="1"/>
-          <text x="326" y="155" fill="#4a6070" font-size="8" font-family="'DM Mono',monospace">ISTANBUL</text>
-          <circle cx="460" cy="155" r="3" fill="#1c3a50" stroke="#38b2d8" stroke-width="1"/>
-          <text x="466" y="152" fill="#4a6070" font-size="8" font-family="'DM Mono',monospace">DUBAI</text>
-          <circle cx="552" cy="175" r="3" fill="#1c3a50" stroke="#38b2d8" stroke-width="1"/>
-          <text x="558" y="172" fill="#4a6070" font-size="8" font-family="'DM Mono',monospace">SINGAPORE</text>
-          <!-- Vessel routes -->
-          <polyline points="298,95 280,110 260,130" fill="none" stroke="#2dd4a0" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>
-          <polygon points="275,107 271,117 279,117" fill="#2dd4a0" transform="rotate(-45,275,112)"/>
-          <circle cx="275" cy="112" r="6" fill="none" stroke="#2dd4a0" stroke-width="0.8" opacity="0.4"><animate attributeName="r" values="6;12;6" dur="2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0;0.4" dur="2s" repeatCount="indefinite"/></circle>
-          <polyline points="260,130 288,142 320,158" fill="none" stroke="#38b2d8" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>
-          <polygon points="295,145 291,155 299,155" fill="#38b2d8" transform="rotate(20,295,150)"/>
-          <circle cx="295" cy="150" r="6" fill="none" stroke="#38b2d8" stroke-width="0.8" opacity="0.4"><animate attributeName="r" values="6;12;6" dur="2.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0;0.4" dur="2.5s" repeatCount="indefinite"/></circle>
-          <polyline points="320,158 388,156 460,155" fill="none" stroke="#f5a623" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>
-          <polygon points="398,153 394,161 402,161" fill="#f5a623"/>
-          <circle cx="398" cy="157" r="6" fill="none" stroke="#f5a623" stroke-width="0.8" opacity="0.4"><animate attributeName="r" values="6;12;6" dur="3s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0;0.4" dur="3s" repeatCount="indefinite"/></circle>
-          <polyline points="460,155 505,163 552,175" fill="none" stroke="#a78bfa" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.5"/>
-          <polygon points="510,162 506,170 514,170" fill="#a78bfa"/>
-          <circle cx="510" cy="166" r="6" fill="none" stroke="#a78bfa" stroke-width="0.8" opacity="0.4"><animate attributeName="r" values="6;12;6" dur="2.2s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.4;0;0.4" dur="2.2s" repeatCount="indefinite"/></circle>
-          <circle cx="256" cy="135" r="5" fill="#1a3a50" stroke="#7ab4f0" stroke-width="1"/>
-          <rect x="8" y="8" width="120" height="56" rx="4" fill="rgba(4,8,12,0.85)"/>
-          <circle cx="18" cy="20" r="4" fill="#2dd4a0"/><text x="26" y="24" fill="#4a6070" font-size="9" font-family="'DM Mono',monospace">MS Nordfjord</text>
-          <circle cx="18" cy="34" r="4" fill="#38b2d8"/><text x="26" y="38" fill="#4a6070" font-size="9" font-family="'DM Mono',monospace">KV Harstad</text>
-          <circle cx="18" cy="48" r="4" fill="#f5a623"/><text x="26" y="52" fill="#4a6070" font-size="9" font-family="'DM Mono',monospace">MV Atlantic</text>
-          <circle cx="70" cy="20" r="4" fill="#a78bfa"/><text x="78" y="24" fill="#4a6070" font-size="9" font-family="'DM Mono',monospace">MV Orient</text>
-          <circle cx="70" cy="34" r="4" fill="#7ab4f0" stroke="#7ab4f0" stroke-width="1"/><text x="78" y="38" fill="#4a6070" font-size="9" font-family="'DM Mono',monospace">SS Bergen</text>
-        </svg>
+      <div class="ph">
+        <div class="ph-title">Live vessel positions</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);" id="map-vessel-count">0 vessels</span>
+          <button onclick="gotoPage('fleet',document.querySelectorAll('.tnav')[1])" style="background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--muted);padding:3px 8px;font-size:11px;cursor:pointer;">Manage fleet →</button>
+        </div>
+      </div>
+      <div class="map-box" id="dashboard-map-wrap">
+        <div id="dashboard-map" style="width:100%;height:100%;"></div>
+        <!-- AIS Connect overlay shown when not connected -->
+        <div id="map-connect-overlay" style="position:absolute;inset:0;background:rgba(0,0,0,0.7);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:200;">
+          <div style="font-size:13px;color:var(--text2);">Connect AIS to see live vessels</div>
+          <button onclick="openAISConnect()" style="background:var(--cyan);border:none;border-radius:8px;color:#fff;padding:8px 20px;font-size:13px;font-weight:500;cursor:pointer;">Connect AIS →</button>
+        </div>
       </div>
     </div>
 
@@ -283,8 +305,8 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
         <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px;">
           <div style="font-size:11px;color:var(--muted);margin-bottom:8px;" id="sel-vname">MS Nordfjord</div>
           <div id="vdetail"></div>
-          <div class="margin-bar"><div class="margin-fill" id="mfill" style="width:72%"></div></div>
-          <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--muted);">
+          <div class="margin-bar"><div class="margin-fill" id="mfill" style="width:72%;background:var(--green);"></div></div>
+          <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">
             <span>COST</span><span id="mpct" style="color:var(--green);">+72%</span><span>REVENUE</span>
           </div>
         </div>
@@ -292,9 +314,10 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
     </div>
   </div>
 
+  <!-- BOTTOM 3 PANELS -->
   <div class="grid-3">
     <div class="panel">
-      <div class="ph"><div class="ph-title">Bunker prices — global</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">VLSFO USD/MT</div></div>
+      <div class="ph"><div class="ph-title">Bunker prices — global</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">VLSFO USD/MT</div></div>
       <div class="pb-sm">
         <table class="ftable">
           <thead><tr><th>Port</th><th>Price</th><th>24h</th></tr></thead>
@@ -314,7 +337,7 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
       <div class="pb-sm"><div class="chart-wrap"><canvas id="pnlChart"></canvas></div></div>
     </div>
     <div class="panel">
-      <div class="ph"><div class="ph-title">Invoices</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">AI extracted</div></div>
+      <div class="ph"><div class="ph-title">Invoices</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">AI extracted</div></div>
       <div class="pb-sm">
         <div class="irow"><div class="iico iico-f">⛽</div><div style="flex:1;"><div class="iname">Bunker — Rotterdam</div><div class="imeta">MV Atlantic · Apr 03</div></div><div><div class="iamt">-$26,400</div><span class="pill pill-g" style="font-size:9px;">Paid</span></div></div>
         <div class="irow"><div class="iico iico-p">⚓</div><div style="flex:1;"><div class="iname">Port dues — Istanbul</div><div class="imeta">KV Harstad · Apr 03</div></div><div><div class="iamt">-$3,800</div><span class="pill pill-a" style="font-size:9px;">Pending</span></div></div>
@@ -323,28 +346,33 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
       </div>
     </div>
   </div>
+
 </div>
 </div>
 
-<!-- ═══════════════ FLEET ═══════════════ -->
+<!-- ══════════════════════════════════════════════════════════
+     FLEET PAGE
+══════════════════════════════════════════════════════════ -->
 <div class="page" id="page-fleet">
 <div class="main">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-    <div style="font-size:13px;color:var(--muted);">5 vessels registered · 3 underway · 1 anchored · 1 in port</div>
+    <div style="font-size:13px;color:var(--muted);" id="fleet-summary">5 vessels registered · 3 underway · 1 anchored · 1 in port</div>
     <button class="btn btn-p" onclick="openAddVessel()">+ Add vessel</button>
   </div>
   <div class="fleet-grid" id="fleet-grid">
-    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇳🇴</div><div class="vc-name">MS Nordfjord</div><div class="vc-type">General cargo · 4,200 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Bergen→Rotterdam</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">14.2 kn</div></div><div class="vc-stat"><div class="vc-stat-l">Voyage P&L</div><div class="vc-stat-v" style="color:var(--green);">+$54,200</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">08:40 UTC</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="gotoPage('dashboard',document.querySelectorAll('.tnav')[0])">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('MS Nordfjord')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'MS Nordfjord')">Remove</button></div></div>
-    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇳🇴</div><div class="vc-name">KV Harstad</div><div class="vc-type">Offshore supply · 2,800 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Rotterdam→Istanbul</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">11.8 kn</div></div><div class="vc-stat"><div class="vc-stat-l">Voyage P&L</div><div class="vc-stat-v" style="color:var(--green);">+$31,800</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">22:15 UTC</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('KV Harstad')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'KV Harstad')">Remove</button></div></div>
-    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇬🇧</div><div class="vc-name">MV Atlantic</div><div class="vc-type">Bulk carrier · 18,400 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Istanbul→Dubai</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">12.4 kn</div></div><div class="vc-stat"><div class="vc-stat-l">Voyage P&L</div><div class="vc-stat-v" style="color:var(--green);">+$82,100</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">3d 14h</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('MV Atlantic')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'MV Atlantic')">Remove</button></div></div>
-    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇸🇬</div><div class="vc-name">MV Orient Star</div><div class="vc-type">Container · 8,200 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Dubai→Singapore</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">16.0 kn</div></div><div class="vc-stat"><div class="vc-stat-l">Voyage P&L</div><div class="vc-stat-v" style="color:var(--green);">+$118,400</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">6d 08h</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('MV Orient Star')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'MV Orient Star')">Remove</button></div></div>
-    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇳🇴</div><div class="vc-name">SS Bergen</div><div class="vc-type">Tanker · 6,800 GT</div></div><span class="pill pill-a">Anchored</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Location</div><div class="vc-stat-v" style="font-size:11px;">Rotterdam Roads</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">0.0 kn</div></div><div class="vc-stat"><div class="vc-stat-l">Idle cost/day</div><div class="vc-stat-v" style="color:var(--amber);">$4,200</div></div><div class="vc-stat"><div class="vc-stat-l">Since</div><div class="vc-stat-v">Apr 02</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('SS Bergen')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'SS Bergen')">Remove</button></div></div>
+    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇳🇴</div><div class="vc-name">MS Nordfjord</div><div class="vc-type">General cargo · 4,200 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Bergen→Rotterdam</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">14.2 kn</div></div><div class="vc-stat"><div class="vc-stat-l">P&L</div><div class="vc-stat-v" style="color:var(--green);">+$54,200</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">08:40 UTC</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('MS Nordfjord')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'MS Nordfjord')">Remove</button></div></div>
+    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇳🇴</div><div class="vc-name">KV Harstad</div><div class="vc-type">Offshore supply · 2,800 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Rotterdam→Istanbul</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">11.8 kn</div></div><div class="vc-stat"><div class="vc-stat-l">P&L</div><div class="vc-stat-v" style="color:var(--green);">+$31,800</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">22:15 UTC</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('KV Harstad')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'KV Harstad')">Remove</button></div></div>
+    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇬🇧</div><div class="vc-name">MV Atlantic</div><div class="vc-type">Bulk carrier · 18,400 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Istanbul→Dubai</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">12.4 kn</div></div><div class="vc-stat"><div class="vc-stat-l">P&L</div><div class="vc-stat-v" style="color:var(--green);">+$82,100</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">3d 14h</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('MV Atlantic')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'MV Atlantic')">Remove</button></div></div>
+    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇸🇬</div><div class="vc-name">MV Orient Star</div><div class="vc-type">Container · 8,200 GT</div></div><span class="pill pill-g">Underway</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Route</div><div class="vc-stat-v" style="font-size:11px;">Dubai→Singapore</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">16.0 kn</div></div><div class="vc-stat"><div class="vc-stat-l">P&L</div><div class="vc-stat-v" style="color:var(--green);">+$118,400</div></div><div class="vc-stat"><div class="vc-stat-l">ETA</div><div class="vc-stat-v">6d 08h</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('MV Orient Star')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'MV Orient Star')">Remove</button></div></div>
+    <div class="vc"><div class="vc-top"><div><div style="font-size:18px;">🇳🇴</div><div class="vc-name">SS Bergen</div><div class="vc-type">Tanker · 6,800 GT</div></div><span class="pill pill-a">Anchored</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Location</div><div class="vc-stat-v" style="font-size:11px;">Rotterdam Roads</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">0.0 kn</div></div><div class="vc-stat"><div class="vc-stat-l">Idle/day</div><div class="vc-stat-v" style="color:var(--amber);">$4,200</div></div><div class="vc-stat"><div class="vc-stat-l">Since</div><div class="vc-stat-v">Apr 02</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('SS Bergen')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'SS Bergen')">Remove</button></div></div>
     <div class="add-placeholder" id="add-ph" onclick="openAddVessel()"><span>+</span><span>Add vessel</span></div>
   </div>
 </div>
 </div>
 
-<!-- ═══════════════ VOYAGE PLANNER ═══════════════ -->
+<!-- ══════════════════════════════════════════════════════════
+     VOYAGE PLANNER PAGE
+══════════════════════════════════════════════════════════ -->
 <div class="page" id="page-voyage">
 <div class="main">
   <div class="grid-eq">
@@ -353,7 +381,7 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
       <div class="pb">
         <div class="fgrid">
           <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="f-vessel"><option>MS Nordfjord</option><option>KV Harstad</option><option>MV Atlantic</option><option>MV Orient Star</option><option>SS Bergen</option></select></div>
-          <div class="fg"><label class="flabel">Cargo type</label><select class="fselect" id="f-cargo"><option>General cargo</option><option>Refrigerated</option><option>Offshore supply</option><option>Bulk</option><option>Container</option><option>Tanker</option></select></div>
+          <div class="fg"><label class="flabel">Cargo type</label><select class="fselect"><option>General cargo</option><option>Refrigerated</option><option>Offshore supply</option><option>Bulk</option><option>Container</option><option>Tanker</option></select></div>
           <div class="fg"><label class="flabel">Departure port</label><select class="fselect" id="f-from" onchange="calcEst()"><option>Bergen</option><option>Rotterdam</option><option>Singapore</option><option>Dubai</option><option>Istanbul</option><option>Houston</option><option>Tokyo</option><option>New York</option></select></div>
           <div class="fg"><label class="flabel">Destination</label><select class="fselect" id="f-to" onchange="calcEst()"><option>Rotterdam</option><option>Singapore</option><option>Dubai</option><option>Bergen</option><option>Istanbul</option><option>Houston</option><option>Tokyo</option><option>New York</option></select></div>
           <div class="fg"><label class="flabel">Cargo (MT)</label><input class="finput" type="number" id="f-wt" value="4200" oninput="calcEst()"/></div>
@@ -361,15 +389,12 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
           <div class="fg"><label class="flabel">Speed (kn)</label><input class="finput" type="number" id="f-spd" value="14" oninput="calcEst()"/></div>
           <div class="fg"><label class="flabel">Departure date</label><input class="finput" type="date" id="f-date"/></div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-s" onclick="calcEst()">Recalculate</button>
-          <button class="btn btn-p" onclick="createVoyage()">Create voyage →</button>
-        </div>
+        <div style="display:flex;gap:8px;"><button class="btn btn-s" onclick="calcEst()">Recalculate</button><button class="btn btn-p" onclick="createVoyage()">Create voyage →</button></div>
       </div>
     </div>
     <div>
       <div class="panel" style="margin-bottom:12px;">
-        <div class="ph"><div class="ph-title">Voyage estimate</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">AI calculated</div></div>
+        <div class="ph"><div class="ph-title">Voyage estimate</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">AI calculated</div></div>
         <div class="pb-sm" id="est-body"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Adjust settings to see estimate</div></div>
       </div>
       <div class="panel">
@@ -385,13 +410,15 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
 </div>
 </div>
 
-<!-- ═══════════════ ALERTS ═══════════════ -->
+<!-- ══════════════════════════════════════════════════════════
+     ALERTS PAGE
+══════════════════════════════════════════════════════════ -->
 <div class="page" id="page-alerts">
 <div class="main">
   <div class="grid-eq">
     <div>
       <div class="panel" style="margin-bottom:12px;">
-        <div class="ph"><div class="ph-title">Configured alerts</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);" id="alrt-count">5 ACTIVE</div></div>
+        <div class="ph"><div class="ph-title">Configured alerts</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);" id="alrt-count">5 ACTIVE</div></div>
         <div id="alert-list">
           <div class="arow"><div class="adot adot-r"></div><div style="flex:1;"><div class="aname">Bunker spike — Stavanger</div><div class="adesc">VLSFO &gt; $630 · triggered 14:22 UTC</div></div><span class="pill pill-r" style="font-size:10px;">Triggered</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button></div>
           <div class="arow"><div class="adot adot-r"></div><div style="flex:1;"><div class="aname">Margin below threshold</div><div class="adesc">SS Bergen &lt; 55% · triggered 11:05</div></div><span class="pill pill-r" style="font-size:10px;">Triggered</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button></div>
@@ -419,46 +446,56 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
       </div>
     </div>
     <div class="panel">
-      <div class="ph"><div class="ph-title">Notification log</div><div style="font-family:var(--mono);font-size:10px;color:var(--muted);">Last 24h</div></div>
+      <div class="ph"><div class="ph-title">Notification log</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">Last 24h</div></div>
       <div id="nlog">
-        <div class="nrow"><div class="ndot" style="background:var(--red);"></div><div><div class="ntext"><strong style="color:var(--red);">TRIGGERED</strong> — Stavanger VLSFO hit $641, exceeds $630 threshold. Consider Rotterdam ($602) for next bunkering.</div><div class="ntime">14:22 UTC · Bunker spike</div></div></div>
-        <div class="nrow"><div class="ndot" style="background:var(--amber);"></div><div><div class="ntext"><strong style="color:var(--amber);">WARNING</strong> — SS Bergen voyage margin 51.4%, below 55% threshold. Fuel costs above estimate.</div><div class="ntime">11:05 UTC · Margin alert</div></div></div>
-        <div class="nrow"><div class="ndot" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">INFO</strong> — MS Nordfjord departed Bergen 08:14. ETA Rotterdam 22:40 UTC. Voyage tracking started.</div><div class="ntime">08:14 UTC · Departure</div></div></div>
-        <div class="nrow"><div class="ndot" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">INFO</strong> — Rotterdam VLSFO dropped to $602. Down 1.1% — within target range for bunkering.</div><div class="ntime">07:30 UTC · Price update</div></div></div>
-        <div class="nrow"><div class="ndot" style="background:var(--amber);"></div><div><div class="ntext"><strong style="color:var(--amber);">REMINDER</strong> — Invoice $1,650 from Dubai agent pending 3 days. Approve to avoid late fees.</div><div class="ntime">06:00 UTC · Invoice</div></div></div>
-        <div class="nrow"><div class="ndot" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">AUTO</strong> — MV Atlantic bunker invoice $26,400 extracted from email and logged to Rotterdam voyage.</div><div class="ntime">Yesterday 18:44 UTC · AI extracted</div></div></div>
+        <div class="nrow"><div class="ndot2" style="background:var(--red);"></div><div><div class="ntext"><strong style="color:var(--red);">TRIGGERED</strong> — Stavanger VLSFO hit $641, exceeds $630 threshold. Consider Rotterdam ($602) for next bunkering.</div><div class="ntime">14:22 UTC · Bunker spike</div></div></div>
+        <div class="nrow"><div class="ndot2" style="background:var(--amber);"></div><div><div class="ntext"><strong style="color:var(--amber);">WARNING</strong> — SS Bergen voyage margin 51.4%, below 55% threshold. Fuel costs above estimate.</div><div class="ntime">11:05 UTC · Margin alert</div></div></div>
+        <div class="nrow"><div class="ndot2" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">INFO</strong> — MS Nordfjord departed Bergen 08:14. ETA Rotterdam 22:40 UTC.</div><div class="ntime">08:14 UTC · Departure</div></div></div>
+        <div class="nrow"><div class="ndot2" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">INFO</strong> — Rotterdam VLSFO dropped to $602. Down 1.1% — within target range.</div><div class="ntime">07:30 UTC · Price update</div></div></div>
+        <div class="nrow"><div class="ndot2" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">AUTO</strong> — MV Atlantic bunker invoice $26,400 extracted from email and logged to Rotterdam voyage.</div><div class="ntime">Yesterday 18:44 UTC · AI extracted</div></div></div>
       </div>
     </div>
   </div>
 </div>
 </div>
 
+<!-- ══════════════════════════════════════════════════════════
+     AIS CONNECT MODAL
+══════════════════════════════════════════════════════════ -->
+<div class="modal-bg" id="ais-modal" style="display:none;" onclick="if(event.target===this)closeAISModal()">
+  <div class="modal">
+    <div class="modal-h">
+      <div class="modal-title">Connect AIS stream</div>
+      <button class="modal-close" onclick="closeAISModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px;">
+        Enter your <a href="https://aisstream.io" target="_blank" style="color:var(--cyan);">aisstream.io</a> API key to see live vessel positions on the dashboard map. Your key is saved in your browser and never uploaded anywhere.
+      </div>
+      <div class="fg"><label class="flabel">API key</label><input class="finput" type="password" id="ais-key-input" placeholder="Paste your aisstream.io API key"/></div>
+      <div style="font-size:11px;color:var(--muted);">Don't have a key? Get a free one at <a href="https://aisstream.io" target="_blank" style="color:var(--cyan);">aisstream.io</a> — takes 2 minutes, no credit card required.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="closeAISModal()">Cancel</button>
+      <button class="btn btn-p" onclick="connectAIS()">Connect →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD VESSEL MODAL -->
 <div class="modal-bg" id="add-modal" style="display:none;" onclick="if(event.target===this)closeModal()">
   <div class="modal">
-    <div class="modal-h">
-      <div class="modal-title" id="modal-title">Add vessel</div>
-      <button class="modal-close" onclick="closeModal()">×</button>
-    </div>
+    <div class="modal-h"><div class="modal-title" id="modal-title">Add vessel</div><button class="modal-close" onclick="closeModal()">×</button></div>
     <div class="modal-body">
       <div class="fgrid">
         <div class="fg"><label class="flabel">Vessel name</label><input class="finput" type="text" id="m-name" placeholder="e.g. MV Trondheim"/></div>
         <div class="fg"><label class="flabel">IMO number</label><input class="finput" type="text" id="m-imo" placeholder="e.g. 9234567"/></div>
         <div class="fg"><label class="flabel">MMSI</label><input class="finput" type="text" id="m-mmsi" placeholder="e.g. 257123450"/></div>
         <div class="fg"><label class="flabel">Flag state</label>
-          <select class="fselect" id="m-flag">
-            <option>🇳🇴 Norway</option><option>🇬🇧 United Kingdom</option><option>🇩🇪 Germany</option>
-            <option>🇳🇱 Netherlands</option><option>🇸🇬 Singapore</option><option>🇵🇦 Panama</option>
-            <option>🇲🇭 Marshall Islands</option><option>🇱🇷 Liberia</option><option>🇬🇷 Greece</option>
-            <option>🇺🇸 United States</option><option>🇩🇰 Denmark</option>
-          </select>
+          <select class="fselect" id="m-flag"><option>🇳🇴 Norway</option><option>🇬🇧 United Kingdom</option><option>🇩🇪 Germany</option><option>🇳🇱 Netherlands</option><option>🇸🇬 Singapore</option><option>🇵🇦 Panama</option><option>🇲🇭 Marshall Islands</option><option>🇱🇷 Liberia</option><option>🇬🇷 Greece</option><option>🇺🇸 United States</option><option>🇩🇰 Denmark</option></select>
         </div>
         <div class="fg"><label class="flabel">Vessel type</label>
-          <select class="fselect" id="m-type">
-            <option>General cargo</option><option>Bulk carrier</option><option>Tanker</option>
-            <option>Container</option><option>Offshore supply</option><option>Refrigerated cargo</option>
-            <option>RoRo</option><option>LNG carrier</option>
-          </select>
+          <select class="fselect" id="m-type"><option>General cargo</option><option>Bulk carrier</option><option>Tanker</option><option>Container</option><option>Offshore supply</option><option>Refrigerated cargo</option><option>RoRo</option><option>LNG carrier</option></select>
         </div>
         <div class="fg"><label class="flabel">Gross tonnage (GT)</label><input class="finput" type="number" id="m-gt" placeholder="e.g. 4200"/></div>
         <div class="fg"><label class="flabel">Fuel consumption (MT/day)</label><input class="finput" type="number" id="m-fuel" placeholder="e.g. 28"/></div>
@@ -466,72 +503,305 @@ body{color:var(--text);font-family:var(--font);font-size:14px;}
       </div>
       <div class="fg"><label class="flabel">Notes</label><input class="finput" type="text" id="m-notes" placeholder="Any additional notes"/></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-s" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-p" onclick="saveVessel()">Save vessel →</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-s" onclick="closeModal()">Cancel</button><button class="btn btn-p" onclick="saveVessel()">Save vessel →</button></div>
   </div>
 </div>
 
 <script>
-// ── DATA ──────────────────────────────────────────
-const FX={NOK:{r:10.8,s:'kr'},USD:{r:1,s:'$'},EUR:{r:0.92,s:'€'},GBP:{r:0.79,s:'£'},SGD:{r:1.35,s:'S$'}};
-let cur='NOK';
-
-const vessels=[
-  {name:'MS Nordfjord',flag:'🇳🇴',from:'Bergen',to:'Rotterdam',rev:820000,costs:228000,fuel:145000,port:42000,agent:22000,prog:72,eta:'08:40 UTC',dist:'612 nm',spd:'14.2 kn',cargo:'General cargo · 1,840t'},
-  {name:'KV Harstad',flag:'🇳🇴',from:'Rotterdam',to:'Istanbul',rev:540000,costs:198000,fuel:122000,port:38000,agent:18000,prog:38,eta:'22:15 UTC',dist:'2,180 nm',spd:'11.8 kn',cargo:'Offshore supply · 920t'},
-  {name:'MV Atlantic',flag:'🇬🇧',from:'Istanbul',to:'Dubai',rev:1240000,costs:580000,fuel:380000,port:88000,agent:42000,prog:55,eta:'3d 14h',dist:'3,900 nm',spd:'12.4 kn',cargo:'Bulk · 18,200t'},
-  {name:'MV Orient Star',flag:'🇸🇬',from:'Dubai',to:'Singapore',rev:1820000,costs:720000,fuel:490000,port:98000,agent:52000,prog:22,eta:'6d 08h',dist:'3,640 nm',spd:'16.0 kn',cargo:'Container · 6,400 TEU'},
-  {name:'SS Bergen',flag:'🇳🇴',from:'Rotterdam',to:'—',rev:0,costs:45360,fuel:29400,port:12000,agent:3960,prog:0,eta:'Anchored',dist:'—',spd:'0.0 kn',cargo:'Tanker — idle'}
-];
-
-const DIST={Bergen:{Rotterdam:612,Singapore:10940,Dubai:6240,Istanbul:2840,Houston:8200,Tokyo:11800,'New York':6100},Rotterdam:{Bergen:612,Singapore:10640,Dubai:6640,Istanbul:2180,Houston:7600,Tokyo:11200,'New York':5550},Singapore:{Bergen:10940,Rotterdam:10640,Dubai:3640,Istanbul:8200,Houston:13200,Tokyo:3300,'New York':15600},Dubai:{Bergen:6240,Rotterdam:6640,Singapore:3640,Istanbul:3620,Houston:9800,Tokyo:5900,'New York':11200},Istanbul:{Bergen:2840,Rotterdam:2180,Singapore:8200,Dubai:3620,Houston:9200,Tokyo:9800,'New York':8100},Houston:{Bergen:8200,Rotterdam:7600,Singapore:13200,Dubai:9800,Istanbul:9200,Tokyo:9800,'New York':1600},Tokyo:{Bergen:11800,Rotterdam:11200,Singapore:3300,Dubai:5900,Istanbul:9800,Houston:9800,'New York':10300},'New York':{Bergen:6100,Rotterdam:5550,Singapore:15600,Dubai:11200,Istanbul:8100,Houston:1600,Tokyo:10300}};
-const BUNK={Bergen:618,Rotterdam:602,Singapore:625,Dubai:614,Istanbul:619,Houston:608,Tokyo:631,'New York':622,Stavanger:641,Tromsø:629,Trondheim:624,Ålesund:611,Fujairah:614};
-
-// ── NAVIGATION ──────────────────────────────────────────
-function gotoPage(id,btn){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.tnav').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  btn.classList.add('active');
-  if(id==='voyage')setTimeout(calcEst,100);
+// ══════════════════════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════════════════════
+var isDark=true;
+function toggleTheme(){
+  isDark=!isDark;
+  document.documentElement.setAttribute('data-theme',isDark?'dark':'light');
+  document.getElementById('themebtn').textContent=isDark?'☀ Light':'🌙 Dark';
+  if(dashMap){
+    if(isDark){lightTile.remove();darkTile.addTo(dashMap);}
+    else{darkTile.remove();lightTile.addTo(dashMap);}
+  }
+  refreshChart();
 }
 
-// ── CURRENCY ──────────────────────────────────────────
-let pnl=84320;
+// ══════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════
+function gotoPage(id,btn){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tnav').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='voyage') setTimeout(calcEst,100);
+  if(id==='dashboard' && dashMap) setTimeout(function(){dashMap.invalidateSize();},100);
+}
+
+// ══════════════════════════════════════════════════════════
+// CURRENCY
+// ══════════════════════════════════════════════════════════
+var FX={NOK:{r:10.8,s:'kr'},USD:{r:1,s:'$'},EUR:{r:0.92,s:'€'},GBP:{r:0.79,s:'£'},SGD:{r:1.35,s:'S$'}};
+var cur='NOK';
+var pnl=84320;
+
 function setCurrency(c){
   cur=c;
-  const f=FX[c];
+  var f=FX[c];
   document.getElementById('kpi-pnl').textContent=(pnl>=0?'+':'')+f.s+Math.round(pnl*f.r/10.8).toLocaleString();
   document.getElementById('kpi-curr').textContent=c+' · 4 voyages';
   document.getElementById('ins-saving').textContent=f.s+Math.round(44200*f.r/10.8).toLocaleString();
   selVessel(selV);
 }
 
-// ── VESSEL DETAIL ──────────────────────────────────────────
-let selV=0;
+// ══════════════════════════════════════════════════════════
+// DASHBOARD MAP (Leaflet)
+// ══════════════════════════════════════════════════════════
+var dashMap=null, dashMarkers={}, dashVessels={};
+var aisSocket=null, aisConnected=false, aisMsgCount=0;
+var bboxTimer=null, aisKey='';
+var MAX_V=1500;
+
+var darkTile=null, lightTile=null;
+
+function initDashMap(){
+  dashMap=L.map('dashboard-map',{center:[62,10],zoom:4,preferCanvas:true,zoomControl:true});
+  darkTile=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+  });
+  lightTile=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+    attribution:'© OpenStreetMap © CARTO',subdomains:'abcd',maxZoom:19
+  });
+  darkTile.addTo(dashMap);
+  dashMap.on('moveend zoomend',function(){
+    clearTimeout(bboxTimer);
+    bboxTimer=setTimeout(resubAIS,1500);
+  });
+}
+
+function openAISConnect(){
+  var saved='';
+  try{saved=localStorage.getItem('navprofit_ais_key')||'';}catch(e){}
+  if(saved){
+    aisKey=saved;
+    connectAISSocket(saved);
+    return;
+  }
+  document.getElementById('ais-modal').style.display='flex';
+}
+
+function closeAISModal(){
+  document.getElementById('ais-modal').style.display='none';
+}
+
+function connectAIS(){
+  var key=document.getElementById('ais-key-input').value.trim();
+  if(!key){
+    document.getElementById('ais-key-input').style.borderColor='var(--red)';
+    setTimeout(function(){document.getElementById('ais-key-input').style.borderColor='';},2000);
+    return;
+  }
+  closeAISModal();
+  connectAISSocket(key);
+}
+
+function connectAISSocket(key){
+  aisKey=key;
+  try{localStorage.setItem('navprofit_ais_key',key);}catch(e){}
+  setAISStatus('connecting');
+
+  aisSocket=new WebSocket('wss://stream.aisstream.io/v0/stream');
+  aisSocket.onopen=function(){
+    var b=dashMap?dashMap.getBounds():null;
+    var bbox=b?[[b.getSouthWest().lat,b.getSouthWest().lng],[b.getNorthEast().lat,b.getNorthEast().lng]]:[[56,3],[72,32]];
+    aisSocket.send(JSON.stringify({
+      APIKey:key,
+      BoundingBoxes:[bbox],
+      FilterMessageTypes:['PositionReport','ShipStaticData']
+    }));
+    aisConnected=true;
+    setAISStatus('connected');
+    document.getElementById('map-connect-overlay').style.display='none';
+  };
+  aisSocket.onmessage=function(e){
+    aisMsgCount++;
+    var d=e.data;
+    if(d instanceof Blob){
+      var r=new FileReader();
+      r.onload=function(){try{handleAISMsg(JSON.parse(r.result));}catch(err){}};
+      r.readAsText(d);
+    } else {
+      try{handleAISMsg(JSON.parse(d));}catch(err){}
+    }
+  };
+  aisSocket.onerror=function(){setAISStatus('error');};
+  aisSocket.onclose=function(){
+    if(aisConnected){
+      aisConnected=false;
+      setAISStatus('offline');
+    }
+  };
+}
+
+function resubAIS(){
+  if(!aisConnected||!aisSocket||aisSocket.readyState!==WebSocket.OPEN) return;
+  var b=dashMap.getBounds();
+  aisSocket.send(JSON.stringify({
+    APIKey:aisKey,
+    BoundingBoxes:[[[b.getSouthWest().lat,b.getSouthWest().lng],[b.getNorthEast().lat,b.getNorthEast().lng]]],
+    FilterMessageTypes:['PositionReport','ShipStaticData']
+  }));
+}
+
+function setAISStatus(state){
+  var dot=document.getElementById('ais-dot');
+  var txt=document.getElementById('ais-status');
+  var kpis=document.getElementById('kpi-vessels-sub');
+  if(state==='connected'){dot.classList.remove('off');txt.textContent='AIS live';}
+  else if(state==='connecting'){dot.classList.add('off');txt.textContent='AIS connecting...';}
+  else{dot.classList.add('off');txt.textContent='AIS offline';}
+  if(kpis) kpis.textContent=state==='connected'?'live from AIS':'AIS offline';
+}
+
+function vColor(v){
+  var t=v.shipType||0;
+  if(t>=60&&t<70) return '#7c3aed';
+  if(t>=70&&t<80) return isDark?'#38b2d8':'#0369a1';
+  if(t>=80&&t<90) return '#b45309';
+  if(t===30) return isDark?'#2dd4a0':'#047857';
+  if(t===52) return '#c2410c';
+  if((v.speedKnots||0)>1) return isDark?'#2dd4a0':'#047857';
+  return '#64748b';
+}
+
+function makeVIcon(v,sel){
+  var c=vColor(v),h=v.headingDeg||0,sz=sel?14:9;
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+(sz*3)+'" height="'+(sz*3)+'" viewBox="-15 -15 30 30">'
+    +'<g transform="rotate('+h+')">'
+    +'<polygon points="0,-10 6,7 0,4 -6,7" fill="white" stroke="white" stroke-width="3" stroke-linejoin="round"/>'
+    +'<polygon points="0,-10 6,7 0,4 -6,7" fill="'+c+'" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>'
+    +'</g>'+(sel?'<circle r="13" fill="none" stroke="'+c+'" stroke-width="2" opacity="0.6"/>':'')+'</svg>';
+  return L.divIcon({html:svg,className:'',iconSize:[sz*3,sz*3],iconAnchor:[sz*1.5,sz*1.5]});
+}
+
+function handleAISMsg(msg){
+  var meta=msg.MetaData||{};
+  var mmsi=String(meta.MMSI||'');
+  if(!mmsi) return;
+  if(!dashVessels[mmsi]&&Object.keys(dashVessels).length>=MAX_V) return;
+
+  if(msg.MessageType==='PositionReport'){
+    var pos=msg.Message.PositionReport;
+    if(!pos||pos.Latitude===0&&pos.Longitude===0) return;
+    if(Math.abs(pos.Latitude)>90||Math.abs(pos.Longitude)>180) return;
+    if(!dashVessels[mmsi]) dashVessels[mmsi]={mmsi:mmsi};
+    dashVessels[mmsi]=Object.assign({},dashVessels[mmsi],{
+      mmsi:mmsi,
+      name:(meta.ShipName&&meta.ShipName.trim())||dashVessels[mmsi].name||('MMSI '+mmsi),
+      lat:pos.Latitude,lon:pos.Longitude,
+      speedKnots:pos.Sog||0,
+      headingDeg:(pos.TrueHeading>0&&pos.TrueHeading<360)?pos.TrueHeading:(pos.Cog||0),
+      navStatus:pos.NavigationalStatus,updated:new Date()
+    });
+    updateDashMarker(mmsi);
+    var cnt=Object.keys(dashVessels).length;
+    document.getElementById('kpi-vessels').textContent=cnt;
+    document.getElementById('map-vessel-count').textContent=cnt+' vessels';
+  }
+  if(msg.MessageType==='ShipStaticData'){
+    var s=msg.Message.ShipStaticData;
+    if(!dashVessels[mmsi]) dashVessels[mmsi]={mmsi:mmsi};
+    dashVessels[mmsi]=Object.assign({},dashVessels[mmsi],{
+      name:(s.Name&&s.Name.trim())||dashVessels[mmsi].name||('MMSI '+mmsi),
+      callSign:s.CallSign&&s.CallSign.trim(),
+      destination:s.Destination&&s.Destination.trim(),
+      imo:s.ImoNumber,shipType:s.Type
+    });
+    if(dashMarkers[mmsi]) updateDashMarker(mmsi);
+  }
+}
+
+function updateDashMarker(mmsi){
+  var v=dashVessels[mmsi];
+  if(!v||!v.lat||!dashMap) return;
+  var icon=makeVIcon(v,false);
+  var popup='<div class="pname">'+(v.name||mmsi)+'</div>'
+    +'<div class="prow"><span class="plbl">Speed</span><span class="pval">'+(v.speedKnots||0).toFixed(1)+'kn</span></div>'
+    +'<div class="prow"><span class="plbl">MMSI</span><span class="pval">'+v.mmsi+'</span></div>'
+    +'<div class="prow"><span class="plbl">Destination</span><span class="pval">'+(v.destination||'—')+'</span></div>'
+    +'<div style="margin-top:8px;"><button onclick="addToFleetFromMap(\''+mmsi+'\')" style="width:100%;background:var(--cyan);border:none;border-radius:6px;color:#fff;padding:6px;font-size:12px;cursor:pointer;">+ Add to fleet</button></div>';
+
+  if(dashMarkers[mmsi]){
+    dashMarkers[mmsi].setLatLng([v.lat,v.lon]).setIcon(icon);
+    if(dashMarkers[mmsi].isPopupOpen()) dashMarkers[mmsi].setPopupContent(popup);
+  } else {
+    dashMarkers[mmsi]=L.marker([v.lat,v.lon],{icon:icon})
+      .bindPopup(popup,{maxWidth:220})
+      .bindTooltip(v.name||mmsi,{className:'vtt',direction:'top',offset:[0,-8]})
+      .addTo(dashMap);
+  }
+}
+
+function addToFleetFromMap(mmsi){
+  var v=dashVessels[mmsi];
+  if(!v) return;
+  try{
+    var fleet=JSON.parse(localStorage.getItem('navprofit_fleet')||'[]');
+    if(fleet.some(function(f){return f.mmsi===mmsi;})){showToast(v.name+' already in fleet','amber');return;}
+    fleet.push({mmsi:v.mmsi,name:v.name,imo:v.imo||'',shipType:v.shipType||0,addedAt:new Date().toISOString()});
+    localStorage.setItem('navprofit_fleet',JSON.stringify(fleet));
+    showToast('✓ '+v.name+' added to fleet','green');
+  }catch(e){showToast('Could not save','red');}
+}
+
+// Stale vessel cleanup
+setInterval(function(){
+  var now=new Date();
+  Object.keys(dashVessels).forEach(function(mmsi){
+    var v=dashVessels[mmsi];
+    if(v.updated&&(now-v.updated)>15*60*1000){
+      if(dashMarkers[mmsi]){dashMap.removeLayer(dashMarkers[mmsi]);delete dashMarkers[mmsi];}
+      delete dashVessels[mmsi];
+    }
+  });
+},60000);
+
+// Auto-connect if key saved
+(function(){
+  try{
+    var saved=localStorage.getItem('navprofit_ais_key');
+    if(saved){setTimeout(function(){connectAISSocket(saved);},800);}
+  }catch(e){}
+})();
+
+// ══════════════════════════════════════════════════════════
+// VESSEL P&L DETAIL
+// ══════════════════════════════════════════════════════════
+var vessels=[
+  {name:'MS Nordfjord',flag:'🇳🇴',from:'Bergen',to:'Rotterdam',rev:820000,costs:228000,fuel:145000,port:42000,agent:22000,prog:72,eta:'08:40 UTC',dist:'612 nm',spd:'14.2 kn',cargo:'General cargo · 1,840t'},
+  {name:'KV Harstad',flag:'🇳🇴',from:'Rotterdam',to:'Istanbul',rev:540000,costs:198000,fuel:122000,port:38000,agent:18000,prog:38,eta:'22:15 UTC',dist:'2,180 nm',spd:'11.8 kn',cargo:'Offshore supply · 920t'},
+  {name:'MV Atlantic',flag:'🇬🇧',from:'Istanbul',to:'Dubai',rev:1240000,costs:580000,fuel:380000,port:88000,agent:42000,prog:55,eta:'3d 14h',dist:'3,900 nm',spd:'12.4 kn',cargo:'Bulk · 18,200t'},
+  {name:'MV Orient Star',flag:'🇸🇬',from:'Dubai',to:'Singapore',rev:1820000,costs:720000,fuel:490000,port:98000,agent:52000,prog:22,eta:'6d 08h',dist:'3,640 nm',spd:'16.0 kn',cargo:'Container · 6,400 TEU'},
+  {name:'SS Bergen',flag:'🇳🇴',from:'Rotterdam',to:'—',rev:0,costs:45360,fuel:29400,port:12000,agent:3960,prog:0,eta:'Anchored',dist:'—',spd:'0.0 kn',cargo:'Tanker — idle'}
+];
+var selV=0;
+
 function selVessel(i){
   selV=i;
-  const v=vessels[i];
-  const f=FX[cur];
-  const fr=f.r/10.8;
-  document.querySelectorAll('[id^=vr]').forEach((r,j)=>{
-    r.classList.toggle('sel',j===i);
-  });
+  var v=vessels[i];
+  var f=FX[cur];
+  var fr=f.r/10.8;
+  document.querySelectorAll('[id^=vr]').forEach(function(r,j){r.classList.toggle('sel',j===i);});
   document.getElementById('sel-vname').textContent=v.name+' · '+v.from+' → '+v.to;
-  const profit=v.rev-v.costs;
-  const margin=v.rev>0?Math.round((profit/v.rev)*100):0;
-  const pos=profit>0;
-  document.getElementById('vdetail').innerHTML=`
-    <div class="drow"><span class="dlabel">Route</span><span class="dval">${v.from} → ${v.to}</span></div>
-    <div class="drow"><span class="dlabel">Cargo</span><span class="dval" style="font-size:11px;">${v.cargo}</span></div>
-    <div class="drow"><span class="dlabel">Distance</span><span class="dval">${v.dist}</span></div>
-    <div class="drow"><span class="dlabel">ETA</span><span class="dval">${v.eta}</span></div>
-    <div class="drow"><span class="dlabel">Revenue</span><span class="dval" style="color:var(--green);">+${f.s}${Math.round(v.rev*fr).toLocaleString()}</span></div>
-    <div class="drow"><span class="dlabel">Fuel</span><span class="dval" style="color:var(--red);">-${f.s}${Math.round(v.fuel*fr).toLocaleString()}</span></div>
-    <div class="drow"><span class="dlabel">Port+Agent</span><span class="dval" style="color:var(--red);">-${f.s}${Math.round((v.port+v.agent)*fr).toLocaleString()}</span></div>
-    <div class="drow"><span class="dlabel">Net P&L</span><span class="dval" style="color:${pos?'var(--green)':'var(--red)'};font-size:14px;">${pos?'+':'-'}${f.s}${Math.round(Math.abs(profit)*fr).toLocaleString()}</span></div>`;
+  var profit=v.rev-v.costs;
+  var margin=v.rev>0?Math.round((profit/v.rev)*100):0;
+  var pos=profit>0;
+  document.getElementById('vdetail').innerHTML=
+    '<div class="drow"><span class="dlabel">Route</span><span class="dval">'+v.from+' → '+v.to+'</span></div>'
+    +'<div class="drow"><span class="dlabel">Cargo</span><span class="dval" style="font-size:11px;">'+v.cargo+'</span></div>'
+    +'<div class="drow"><span class="dlabel">Distance</span><span class="dval">'+v.dist+'</span></div>'
+    +'<div class="drow"><span class="dlabel">ETA</span><span class="dval">'+v.eta+'</span></div>'
+    +'<div class="drow"><span class="dlabel">Revenue</span><span class="dval" style="color:var(--green);">+'+f.s+Math.round(v.rev*fr).toLocaleString()+'</span></div>'
+    +'<div class="drow"><span class="dlabel">Fuel</span><span class="dval" style="color:var(--red);">-'+f.s+Math.round(v.fuel*fr).toLocaleString()+'</span></div>'
+    +'<div class="drow"><span class="dlabel">Port+Agent</span><span class="dval" style="color:var(--red);">-'+f.s+Math.round((v.port+v.agent)*fr).toLocaleString()+'</span></div>'
+    +'<div class="drow"><span class="dlabel">Net P&L</span><span class="dval" style="color:'+(pos?'var(--green)':'var(--red)')+';font-size:14px;">'+(pos?'+':'-')+f.s+Math.round(Math.abs(profit)*fr).toLocaleString()+'</span></div>';
   document.getElementById('mfill').style.width=Math.max(4,v.prog)+'%';
   document.getElementById('mfill').style.background=pos?'var(--green)':'var(--red)';
   document.getElementById('mpct').textContent=(pos?'+':'')+margin+'%';
@@ -539,74 +809,75 @@ function selVessel(i){
 }
 selVessel(0);
 
-// ── VOYAGE ESTIMATOR ──────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// VOYAGE ESTIMATOR
+// ══════════════════════════════════════════════════════════
+var DIST={Bergen:{Rotterdam:612,Singapore:10940,Dubai:6240,Istanbul:2840,Houston:8200,Tokyo:11800,'New York':6100},Rotterdam:{Bergen:612,Singapore:10640,Dubai:6640,Istanbul:2180,Houston:7600,Tokyo:11200,'New York':5550},Singapore:{Bergen:10940,Rotterdam:10640,Dubai:3640,Istanbul:8200,Houston:13200,Tokyo:3300,'New York':15600},Dubai:{Bergen:6240,Rotterdam:6640,Singapore:3640,Istanbul:3620,Houston:9800,Tokyo:5900,'New York':11200},Istanbul:{Bergen:2840,Rotterdam:2180,Singapore:8200,Dubai:3620,Houston:9200,Tokyo:9800,'New York':8100},Houston:{Bergen:8200,Rotterdam:7600,Singapore:13200,Dubai:9800,Istanbul:9200,Tokyo:9800,'New York':1600},Tokyo:{Bergen:11800,Rotterdam:11200,Singapore:3300,Dubai:5900,Istanbul:9800,Houston:9800,'New York':10300},'New York':{Bergen:6100,Rotterdam:5550,Singapore:15600,Dubai:11200,Istanbul:8100,Houston:1600,Tokyo:10300}};
+var BUNK={Bergen:618,Rotterdam:602,Singapore:625,Dubai:614,Istanbul:619,Houston:608,Tokyo:631,'New York':622,Stavanger:641,Tromsø:629,Trondheim:624,Ålesund:611,Fujairah:614};
+
 function calcEst(){
-  const from=document.getElementById('f-from').value;
-  const to=document.getElementById('f-to').value;
-  const wt=parseFloat(document.getElementById('f-wt').value)||4200;
-  const rate=parseFloat(document.getElementById('f-rate').value)||42;
-  const spd=parseFloat(document.getElementById('f-spd').value)||14;
+  var from=document.getElementById('f-from').value;
+  var to=document.getElementById('f-to').value;
+  var wt=parseFloat(document.getElementById('f-wt').value)||4200;
+  var rate=parseFloat(document.getElementById('f-rate').value)||42;
+  var spd=parseFloat(document.getElementById('f-spd').value)||14;
   if(from===to){document.getElementById('est-body').innerHTML='<div style="color:var(--red);text-align:center;padding:16px;font-size:13px;">Same port selected</div>';return;}
-  const d=(DIST[from]&&DIST[from][to])||2000;
-  const days=d/spd/24;
-  const fuelT=days*28;
-  const bp=BUNK[from]||615;
-  const fuelUsd=Math.round(fuelT*bp);
-  const portUsd=Math.round(d*8+12000);
-  const agentUsd=Math.round(8000+d*1.5);
-  const revUsd=Math.round(wt*rate);
-  const profitUsd=revUsd-fuelUsd-portUsd-agentUsd;
-  const margin=revUsd>0?Math.round((profitUsd/revUsd)*100):0;
-  const pos=profitUsd>0;
-  const dStr=Math.floor(days)+'d '+Math.round((days%1)*24)+'h';
-  document.getElementById('est-body').innerHTML=`
-    <div class="est-row"><span class="est-l">Route</span><span class="est-v">${from} → ${to}</span></div>
-    <div class="est-row"><span class="est-l">Distance</span><span class="est-v">${d.toLocaleString()} nm</span></div>
-    <div class="est-row"><span class="est-l">Voyage time</span><span class="est-v">${dStr} at ${spd}kn</span></div>
-    <div class="est-row"><span class="est-l">Revenue</span><span class="est-v" style="color:var(--green);">+$${revUsd.toLocaleString()}</span></div>
-    <div class="est-row"><span class="est-l">Fuel</span><span class="est-v" style="color:var(--red);">-$${fuelUsd.toLocaleString()}</span></div>
-    <div class="est-row"><span class="est-l">Port dues</span><span class="est-v" style="color:var(--red);">-$${portUsd.toLocaleString()}</span></div>
-    <div class="est-row"><span class="est-l">Agent fees</span><span class="est-v" style="color:var(--red);">-$${agentUsd.toLocaleString()}</span></div>
-    <div class="est-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
-      <span class="est-l">Net P&L</span>
-      <span style="font-family:var(--mono);font-size:18px;font-weight:500;color:${pos?'var(--green)':'var(--red)'};">${pos?'+':'-'}$${Math.abs(profitUsd).toLocaleString()}</span>
-    </div>
-    <div class="est-row"><span class="est-l">Margin</span><span class="est-v" style="color:${pos?'var(--green)':'var(--red)'};">${margin}%</span></div>
-    ${!pos?'<div class="warn-box warn-r">Voyage unprofitable at current rate. Raise rate or reduce fuel costs.</div>':''}
-    ${pos&&margin<35?'<div class="warn-box warn-a">Margin below 35% — tight. Review before committing.</div>':''}`;
-  const dest_bp=BUNK[to]||615;
-  const best=Math.min(bp,dest_bp);
-  const bestPort=bp<=dest_bp?from:to;
-  document.getElementById('port-comp').innerHTML=`
-    <div class="drow"><span class="dlabel">Bunker at ${from}</span><span class="dval" style="color:var(--cyan);">$${bp}/MT</span></div>
-    <div class="drow"><span class="dlabel">Bunker at ${to}</span><span class="dval" style="color:var(--cyan);">$${dest_bp}/MT</span></div>
-    <div class="drow"><span class="dlabel">Best on route</span><span class="dval" style="color:var(--green);">${bestPort} · $${best}/MT</span></div>
-    <div class="drow"><span class="dlabel">Cheapest global</span><span class="dval" style="color:var(--green);">Rotterdam · $602/MT</span></div>`;
+  var d=(DIST[from]&&DIST[from][to])||2000;
+  var days=d/spd/24;
+  var bp=BUNK[from]||615;
+  var fuelUsd=Math.round(days*28*bp);
+  var portUsd=Math.round(d*8+12000);
+  var agentUsd=Math.round(8000+d*1.5);
+  var revUsd=Math.round(wt*rate);
+  var profitUsd=revUsd-fuelUsd-portUsd-agentUsd;
+  var margin=revUsd>0?Math.round((profitUsd/revUsd)*100):0;
+  var pos=profitUsd>0;
+  var dStr=Math.floor(days)+'d '+Math.round((days%1)*24)+'h';
+  document.getElementById('est-body').innerHTML=
+    '<div class="est-row"><span class="est-l">Route</span><span class="est-v">'+from+' → '+to+'</span></div>'
+    +'<div class="est-row"><span class="est-l">Distance</span><span class="est-v">'+d.toLocaleString()+' nm</span></div>'
+    +'<div class="est-row"><span class="est-l">Voyage time</span><span class="est-v">'+dStr+' at '+spd+'kn</span></div>'
+    +'<div class="est-row"><span class="est-l">Revenue</span><span class="est-v" style="color:var(--green);">+$'+revUsd.toLocaleString()+'</span></div>'
+    +'<div class="est-row"><span class="est-l">Fuel</span><span class="est-v" style="color:var(--red);">-$'+fuelUsd.toLocaleString()+'</span></div>'
+    +'<div class="est-row"><span class="est-l">Port dues</span><span class="est-v" style="color:var(--red);">-$'+portUsd.toLocaleString()+'</span></div>'
+    +'<div class="est-row"><span class="est-l">Agent fees</span><span class="est-v" style="color:var(--red);">-$'+agentUsd.toLocaleString()+'</span></div>'
+    +'<div class="est-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">'
+    +'<span class="est-l">Net P&L</span>'
+    +'<span style="font-family:\'DM Mono\',monospace;font-size:18px;font-weight:500;color:'+(pos?'var(--green)':'var(--red)')+';">'+(pos?'+':'-')+'$'+Math.abs(profitUsd).toLocaleString()+'</span></div>'
+    +'<div class="est-row"><span class="est-l">Margin</span><span class="est-v" style="color:'+(pos?'var(--green)':'var(--red)')+';">'+margin+'%</span></div>'
+    +(!pos?'<div class="warn-box warn-r">Voyage unprofitable at current rate.</div>':'')
+    +(pos&&margin<35?'<div class="warn-box warn-a">Margin below 35% — review before committing.</div>':'');
+  var destBp=BUNK[to]||615;
+  var bestPort=bp<=destBp?from:to;
+  document.getElementById('port-comp').innerHTML=
+    '<div class="drow"><span class="dlabel">Bunker at '+from+'</span><span class="dval" style="color:var(--cyan);">$'+bp+'/MT</span></div>'
+    +'<div class="drow"><span class="dlabel">Bunker at '+to+'</span><span class="dval" style="color:var(--cyan);">$'+destBp+'/MT</span></div>'
+    +'<div class="drow"><span class="dlabel">Best on route</span><span class="dval" style="color:var(--green);">'+bestPort+' · $'+Math.min(bp,destBp)+'/MT</span></div>'
+    +'<div class="drow"><span class="dlabel">Cheapest global</span><span class="dval" style="color:var(--green);">Rotterdam · $602/MT</span></div>';
 }
 
-let vlog=[];
+var vlog=[];
 function createVoyage(){
-  const from=document.getElementById('f-from').value;
-  const to=document.getElementById('f-to').value;
-  if(from===to)return;
-  const vessel=document.getElementById('f-vessel').value;
-  const wt=document.getElementById('f-wt').value;
-  const rate=document.getElementById('f-rate').value;
-  const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
-  vlog.unshift({vessel,from,to,wt,rate,date:today});
-  document.getElementById('voyage-log').innerHTML=vlog.map(v=>`
-    <div class="irow">
-      <div class="iico iico-a">🚢</div>
-      <div style="flex:1;"><div class="iname">${v.vessel} — ${v.from} → ${v.to}</div><div class="imeta">${v.date} · ${v.wt}MT · $${v.rate}/MT</div></div>
-      <span class="pill pill-g">Tracking</span>
-    </div>`).join('');
-  flash('✓ Voyage created — tracking started','flash-g');
+  var from=document.getElementById('f-from').value;
+  var to=document.getElementById('f-to').value;
+  if(from===to) return;
+  var vessel=document.getElementById('f-vessel').value;
+  var wt=document.getElementById('f-wt').value;
+  var rate=document.getElementById('f-rate').value;
+  var today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+  vlog.unshift({vessel:vessel,from:from,to:to,wt:wt,rate:rate,date:today});
+  document.getElementById('voyage-log').innerHTML=vlog.map(function(v){
+    return '<div class="irow"><div class="iico iico-a">🚢</div><div style="flex:1;"><div class="iname">'+v.vessel+' — '+v.from+' → '+v.to+'</div><div class="imeta">'+v.date+' · '+v.wt+'MT · $'+v.rate+'/MT</div></div><span class="pill pill-g">Tracking</span></div>';
+  }).join('');
+  showToast('✓ Voyage created — tracking started','green');
 }
 
-// ── FLEET ──────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// FLEET MANAGEMENT
+// ══════════════════════════════════════════════════════════
 function openAddVessel(){
   document.getElementById('modal-title').textContent='Add vessel';
-  ['m-name','m-imo','m-mmsi','m-gt','m-fuel','m-spd','m-notes'].forEach(id=>document.getElementById(id).value='');
+  ['m-name','m-imo','m-mmsi','m-gt','m-fuel','m-spd','m-notes'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('add-modal').style.display='flex';
 }
 function openEditVessel(name){
@@ -615,92 +886,111 @@ function openEditVessel(name){
   document.getElementById('add-modal').style.display='flex';
 }
 function closeModal(){document.getElementById('add-modal').style.display='none';}
+
 function saveVessel(){
-  const n=document.getElementById('m-name').value.trim();
-  if(!n){document.getElementById('m-name').style.borderColor='var(--red)';setTimeout(()=>document.getElementById('m-name').style.borderColor='var(--border)',2000);return;}
-  const flag=document.getElementById('m-flag').value.split(' ')[0];
-  const type=document.getElementById('m-type').value;
-  const gt=document.getElementById('m-gt').value||'—';
-  const spd=document.getElementById('m-spd').value||'—';
-  const mmsi=document.getElementById('m-mmsi').value||'—';
-  const card=document.createElement('div');
+  var n=document.getElementById('m-name').value.trim();
+  if(!n){document.getElementById('m-name').style.borderColor='var(--red)';setTimeout(function(){document.getElementById('m-name').style.borderColor='';},2000);return;}
+  var flag=document.getElementById('m-flag').value.split(' ')[0];
+  var type=document.getElementById('m-type').value;
+  var gt=document.getElementById('m-gt').value||'—';
+  var spd=document.getElementById('m-spd').value||'—';
+  var mmsi=document.getElementById('m-mmsi').value||'—';
+  var card=document.createElement('div');
   card.className='vc';
-  card.innerHTML=`<div class="vc-top"><div><div style="font-size:18px;">${flag}</div><div class="vc-name">${n}</div><div class="vc-type">${type} · ${gt} GT</div></div><span class="pill pill-b">Added</span></div><div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Status</div><div class="vc-stat-v">In port</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">${spd} kn</div></div><div class="vc-stat"><div class="vc-stat-l">MMSI</div><div class="vc-stat-v" style="font-size:11px;">${mmsi}</div></div><div class="vc-stat"><div class="vc-stat-l">P&L</div><div class="vc-stat-v" style="color:var(--muted);">No voyage</div></div></div><div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel('${n}')">Edit</button><button class="btn-danger" onclick="removeVessel(this,'${n}')">Remove</button></div>`;
+  card.innerHTML='<div class="vc-top"><div><div style="font-size:18px;">'+flag+'</div><div class="vc-name">'+n+'</div><div class="vc-type">'+type+' · '+gt+' GT</div></div><span class="pill pill-b">Added</span></div>'
+    +'<div class="vc-stats"><div class="vc-stat"><div class="vc-stat-l">Status</div><div class="vc-stat-v">In port</div></div><div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">'+spd+' kn</div></div><div class="vc-stat"><div class="vc-stat-l">MMSI</div><div class="vc-stat-v" style="font-size:11px;">'+mmsi+'</div></div><div class="vc-stat"><div class="vc-stat-l">P&L</div><div class="vc-stat-v" style="color:var(--muted);">No voyage</div></div></div>'
+    +'<div class="vc-actions"><button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button><button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="openEditVessel(\''+n+'\')">Edit</button><button class="btn-danger" onclick="removeVessel(this,\''+n+'\')">Remove</button></div>';
   document.getElementById('fleet-grid').insertBefore(card,document.getElementById('add-ph'));
   closeModal();
-  flash('✓ '+n+' added to fleet','flash-g');
-}
-function removeVessel(btn,name){
-  if(confirm('Remove '+name+' from fleet?')){
-    btn.closest('.vc').remove();
-    flash(name+' removed','flash-r');
-  }
+  showToast('✓ '+n+' added to fleet','green');
 }
 
-// ── ALERTS ──────────────────────────────────────────
+function removeVessel(btn,name){
+  if(confirm('Remove '+name+' from fleet?')){btn.closest('.vc').remove();showToast(name+' removed','red');}
+}
+
+// ══════════════════════════════════════════════════════════
+// ALERTS
+// ══════════════════════════════════════════════════════════
 function tog(btn){btn.classList.toggle('on');btn.classList.toggle('off');}
-function selType(el){document.querySelectorAll('.atype').forEach(a=>a.classList.remove('sel'));el.classList.add('sel');}
+function selType(el){document.querySelectorAll('.atype').forEach(function(a){a.classList.remove('sel');});el.classList.add('sel');}
 function addAlert(){
-  const n=document.getElementById('an').value.trim();
-  const c=document.getElementById('ac').value.trim();
-  if(!n||!c){document.getElementById('an').style.borderColor='var(--red)';setTimeout(()=>document.getElementById('an').style.borderColor='var(--border)',2000);return;}
-  const row=document.createElement('div');
+  var n=document.getElementById('an').value.trim();
+  var c=document.getElementById('ac').value.trim();
+  if(!n||!c){document.getElementById('an').style.borderColor='var(--red)';setTimeout(function(){document.getElementById('an').style.borderColor='';},2000);return;}
+  var row=document.createElement('div');
   row.className='arow';
-  row.innerHTML=`<div class="adot adot-g"></div><div style="flex:1;"><div class="aname">${n}</div><div class="adesc">${c} · just added</div></div><span class="pill pill-g" style="font-size:10px;">Watching</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button>`;
+  row.innerHTML='<div class="adot adot-g"></div><div style="flex:1;"><div class="aname">'+n+'</div><div class="adesc">'+c+' · just added</div></div><span class="pill pill-g" style="font-size:10px;">Watching</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button>';
   document.getElementById('alert-list').appendChild(row);
-  const cnt=document.getElementById('alert-list').querySelectorAll('.arow').length;
+  var cnt=document.getElementById('alert-list').querySelectorAll('.arow').length;
   document.getElementById('alrt-count').textContent=cnt+' ACTIVE';
   document.getElementById('an').value='';document.getElementById('ac').value='';
-  flash('✓ Alert active — now watching','flash-c');
+  showToast('✓ Alert active — now watching','green');
 }
 
-// ── UTILS ──────────────────────────────────────────
-function flash(msg,cls){
-  const el=document.createElement('div');
-  el.className='flash '+cls;
+// ══════════════════════════════════════════════════════════
+// CHART
+// ══════════════════════════════════════════════════════════
+var pnlChartInst=null;
+function refreshChart(){
+  var textColor=isDark?'#4a6070':'#94a3b8';
+  var gridColor=isDark?'#1e2d3a':'#f1f5f9';
+  var lineColor=isDark?'#38b2d8':'#0369a1';
+  var fillColor=isDark?'rgba(56,178,216,0.07)':'rgba(3,105,161,0.07)';
+  if(pnlChartInst){pnlChartInst.destroy();}
+  pnlChartInst=new Chart(document.getElementById('pnlChart'),{
+    type:'line',
+    data:{
+      labels:['Mar 29','Mar 30','Mar 31','Apr 1','Apr 2','Apr 3','Apr 4'],
+      datasets:[{data:[42000,68000,55000,91000,78000,103000,84320],borderColor:lineColor,backgroundColor:fillColor,borderWidth:1.5,pointRadius:2,pointBackgroundColor:lineColor,tension:0.4,fill:true}]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:9}}},
+        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:9},callback:function(v){return '$'+Math.round(v/1000)+'k';}}}
+      }
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════
+function showToast(msg,color){
+  var colors={green:'var(--green)',amber:'var(--amber)',red:'var(--red)'};
+  var el=document.createElement('div');
+  el.className='flash';
+  el.style.cssText='background:var(--surface);border:1px solid '+(colors[color]||colors.green)+';color:'+(colors[color]||colors.green)+';';
   el.textContent=msg;
   document.body.appendChild(el);
-  setTimeout(()=>el.remove(),3000);
+  setTimeout(function(){el.style.opacity='0';setTimeout(function(){el.remove();},300);},2500);
 }
 
-// Clock
-setInterval(()=>{
-  const n=new Date();
-  document.getElementById('clk').textContent=
-    [n.getUTCHours(),n.getUTCMinutes(),n.getUTCSeconds()].map(v=>String(v).padStart(2,'0')).join(':')+' UTC';
+// ══════════════════════════════════════════════════════════
+// CLOCK + LIVE P&L TICK
+// ══════════════════════════════════════════════════════════
+setInterval(function(){
+  var n=new Date();
+  document.getElementById('clk').textContent=[n.getUTCHours(),n.getUTCMinutes(),n.getUTCSeconds()].map(function(v){return String(v).padStart(2,'0');}).join(':')+' UTC';
 },1000);
 
-// Live P&L tick
-setInterval(()=>{
+setInterval(function(){
   pnl+=Math.round((Math.random()-0.3)*1200);
-  const f=FX[cur];
+  var f=FX[cur];
   document.getElementById('kpi-pnl').textContent=(pnl>=0?'+':'')+f.s+Math.round(pnl*f.r/10.8).toLocaleString();
   document.getElementById('kpi-pnl').className='kpi-val '+(pnl>=0?'g':'r');
-},3000);
-
-// Chart
-new Chart(document.getElementById('pnlChart'),{
-  type:'line',
-  data:{
-    labels:['Mar 29','Mar 30','Mar 31','Apr 1','Apr 2','Apr 3','Apr 4'],
-    datasets:[{
-      data:[42000,68000,55000,91000,78000,103000,84320],
-      borderColor:'#38b2d8',backgroundColor:'rgba(56,178,216,0.06)',
-      borderWidth:1.5,pointRadius:2,pointBackgroundColor:'#38b2d8',tension:0.4,fill:true
-    }]
-  },
-  options:{
-    responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false}},
-    scales:{
-      x:{grid:{color:'#0d1a24'},ticks:{color:'#4a6070',font:{size:9}}},
-      y:{grid:{color:'#0d1a24'},ticks:{color:'#4a6070',font:{size:9},callback:v=>'$'+Math.round(v/1000)+'k'}}
-    }
-  }
-});
+},4000);
 
 document.getElementById('f-from').addEventListener('change',calcEst);
 document.getElementById('f-to').addEventListener('change',calcEst);
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+initDashMap();
+refreshChart();
 </script>
 </body>
 </html>
