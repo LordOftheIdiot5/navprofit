@@ -303,7 +303,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
     <button class="tnav" onclick="gotoPage('fleet',this)">Fleet</button>
     <button class="tnav" onclick="gotoPage('voyage',this)">Voyage planner</button>
     <button class="tnav" onclick="gotoPage('alerts',this)">Alerts<span class="ndot"></span></button>
-    <button class="tnav" onclick="gotoPage('settings',this)">⚙ Settings</button>
+    <button class="tnav" onclick="gotoPage('settings',this)">Settings</button>
   </div>
   <div class="topbar-right">
     <select class="curr-sel" id="curr-sel" onchange="setCurrency(this.value)">
@@ -460,7 +460,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <div class="ph"><div class="ph-title">New voyage</div></div>
       <div class="pb">
         <div class="fgrid">
-          <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="f-vessel"><option>MS Nordfjord</option><option>KV Harstad</option><option>MV Atlantic</option><option>MV Orient Star</option><option>SS Bergen</option></select></div>
+          <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="f-vessel"><option value="">— Select vessel —</option></select></div>
           <div class="fg"><label class="flabel">Cargo type</label><select class="fselect"><option>General cargo</option><option>Refrigerated</option><option>Offshore supply</option><option>Bulk</option><option>Container</option><option>Tanker</option></select></div>
           <div class="fg"><label class="flabel">Departure port</label><select class="fselect" id="f-from" onchange="calcEst()"><option>Bergen</option><option>Rotterdam</option><option>Singapore</option><option>Dubai</option><option>Istanbul</option><option>Houston</option><option>Tokyo</option><option>New York</option></select></div>
           <div class="fg"><label class="flabel">Destination</label><select class="fselect" id="f-to" onchange="calcEst()"><option>Rotterdam</option><option>Singapore</option><option>Dubai</option><option>Bergen</option><option>Istanbul</option><option>Houston</option><option>Tokyo</option><option>New York</option></select></div>
@@ -756,7 +756,7 @@ function gotoPage(id,btn){
   document.querySelectorAll('.tnav').forEach(function(b){b.classList.remove('active');});
   document.getElementById('page-'+id).classList.add('active');
   btn.classList.add('active');
-  if(id==='voyage') setTimeout(calcEst,100);
+  if(id==='voyage'){renderVoyageVessels();setTimeout(calcEst,100);}
   if(id==='fleet') renderFleet();
   if(id==='settings') renderSettings();
   if(id==='dashboard' && dashMap) setTimeout(function(){dashMap.invalidateSize();},150);
@@ -967,6 +967,12 @@ function setAISStatus(state){
 // ════════════════════════════════════════════════════
 // AIS MESSAGE HANDLING
 // ════════════════════════════════════════════════════
+function shipTypeName(code){
+  var t={30:'Fishing',31:'Towing',36:'Sailing',37:'Pleasure craft',50:'Pilot',51:'SAR',52:'Tug',
+    60:'Passenger',69:'Passenger',70:'Cargo',79:'Cargo',80:'Tanker',89:'Tanker',90:'Other'};
+  return t[code]||t[Math.floor((code||0)/10)*10]||'Unknown';
+}
+
 function vColor(v){
   var t=v.shipType||0;
   if(t>=60&&t<70) return isDark?'#a78bfa':'#7c3aed';
@@ -1122,16 +1128,53 @@ function renderFleet(){
   if(inport) summary+=' · '+inport+' in port';
   if(!fleet.length) summary='No vessels yet — add your first vessel';
   document.getElementById('fleet-summary').textContent=summary;
+
+  // Always sync voyage planner dropdown
+  renderVoyageVessels();
+}
+
+// Populate voyage planner vessel dropdown from real fleet
+function renderVoyageVessels(){
+  var sel=document.getElementById('f-vessel');
+  if(!sel) return;
+  var fleet=getFleet();
+  var current=sel.value;
+  sel.innerHTML='';
+  if(!fleet.length){
+    var opt=document.createElement('option');
+    opt.value='';opt.textContent='— Add vessels in Fleet tab first —';
+    sel.appendChild(opt);
+    return;
+  }
+  fleet.forEach(function(v){
+    var opt=document.createElement('option');
+    opt.value=v.mmsi||v.name;
+    opt.textContent=(v.flag||'🚢')+' '+v.name+(v.type?' ('+v.type+')':'');
+    sel.appendChild(opt);
+  });
+  // Restore previous selection if still valid
+  if(current) sel.value=current;
 }
 
 function addVesselFromAIS(mmsi){
   var v=dashVessels[mmsi];
   if(!v) return;
   var fleet=getFleet();
-  if(fleet.some(function(f){return f.mmsi===mmsi;})){showToast('Already in fleet','amber');return;}
-  fleet.push({mmsi:v.mmsi,name:v.name||'MMSI '+mmsi,imo:v.imo||'',flag:'🚢',type:'Unknown',gt:'',speed:'',status:'underway',addedAt:new Date().toISOString(),source:'ais'});
+  if(fleet.some(function(f){return f.mmsi===mmsi;})){showToast((v.name||mmsi)+' already in fleet','amber');return;}
+  fleet.push({
+    mmsi:v.mmsi,
+    name:v.name||'MMSI '+mmsi,
+    imo:v.imo||'',
+    flag:'🚢',
+    type:shipTypeName(v.shipType||0),
+    gt:'',speed:(v.speedKnots||0).toFixed(1),
+    status:'underway',
+    addedAt:new Date().toISOString(),
+    source:'ais'
+  });
   saveFleetData(fleet);
-  showToast('✓ '+v.name+' added to fleet','green');
+  renderVoyageVessels();
+  showToast('✓ '+(v.name||mmsi)+' added to fleet','green');
 }
 
 function removeFleetVessel(mmsi){
@@ -1139,6 +1182,7 @@ function removeFleetVessel(mmsi){
   var fleet=getFleet().filter(function(f){return f.mmsi!==mmsi;});
   saveFleetData(fleet);
   renderFleet();
+  renderVoyageVessels();
   showToast('Vessel removed','red');
 }
 
@@ -1192,6 +1236,7 @@ function saveVessel(){
   saveFleetData(fleet);
   closeModal();
   renderFleet();
+  renderVoyageVessels();
 }
 
 // ════════════════════════════════════════════════════
@@ -1430,6 +1475,7 @@ initMap();
 selVessel(0);
 buildChart();
 renderFleet();
+renderVoyageVessels();
 
 // Auto-connect if key saved
 (function(){
