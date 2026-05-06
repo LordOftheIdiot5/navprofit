@@ -79,11 +79,28 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
 .pb{padding:16px;}.pb-sm{padding:12px 16px;}
 
 /* ── MAP ─────────────────────────────────────────── */
-/* Map panel uses flex column so map fills all remaining height */
-.map-panel{display:flex;flex-direction:column;}
+.map-panel{display:flex;flex-direction:column;height:calc(100vh - 52px - 60px - 56px);}
+/* 52px topbar, 60px kpi+insight approx offset, 56px for bottom panels row header */
+/* Simpler: just use a tall fixed calc that works well across screens */
+.map-panel{height:calc(100vh - 280px);min-height:380px;}
 .map-panel .ph{flex-shrink:0;}
-.map-outer{flex:1;position:relative;min-height:340px;}
-#dashboard-map{width:100%;height:100%;min-height:340px;}
+.map-outer{flex:1;position:relative;min-height:0;}
+#dashboard-map{
+  width:100%;
+  height:100%;
+  min-height:380px;
+  /* Enable scroll/touch interaction */
+  touch-action:none;
+}
+
+/* Force map to always fill its container */
+.map-outer .leaflet-container{
+  position:absolute!important;
+  top:0;left:0;right:0;
+  bottom:28px; /* leave room for AIS bar */
+  height:auto!important;
+  width:100%!important;
+}
 
 /* AIS status bar inside map */
 .ais-bar{position:absolute;bottom:0;left:0;right:0;z-index:400;background:rgba(8,12,16,0.85);border-top:1px solid var(--border);padding:6px 12px;display:flex;align-items:center;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);backdrop-filter:blur(4px);}
@@ -268,7 +285,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
   .fleet-grid{grid-template-columns:1fr;}
   .utc{display:none;}
   .topbar-center .tnav{padding:6px 8px;font-size:12px;}
-  .map-outer{min-height:260px;}
+  .map-panel{height:320px;min-height:320px;}
   #dashboard-map{min-height:260px;}
 }
 </style>
@@ -784,7 +801,17 @@ function setCurrency(c){
 // MAP INIT
 // ════════════════════════════════════════════════════
 function initMap(){
-  dashMap=L.map('dashboard-map',{center:[62,10],zoom:4,preferCanvas:true,zoomControl:true});
+  dashMap=L.map('dashboard-map',{
+    center:[62,10],
+    zoom:4,
+    preferCanvas:true,
+    zoomControl:true,
+    scrollWheelZoom:true,   // enable scroll to zoom
+    doubleClickZoom:true,
+    dragging:true,
+    touchZoom:true,
+    boxZoom:true,
+  });
   darkTile=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
     attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a> © <a href="https://carto.com">CARTO</a>',
     subdomains:'abcd',maxZoom:19
@@ -794,10 +821,20 @@ function initMap(){
     subdomains:'abcd',maxZoom:19
   });
   darkTile.addTo(dashMap);
+
+  // Resubscribe on map move
   dashMap.on('moveend zoomend',function(){
     clearTimeout(bboxTimer);
     bboxTimer=setTimeout(resubscribeAIS,1500);
   });
+
+  // Invalidate size whenever window resizes so map fills container
+  window.addEventListener('resize',function(){
+    if(dashMap) dashMap.invalidateSize();
+  });
+
+  // Also invalidate after a short delay on init
+  setTimeout(function(){if(dashMap) dashMap.invalidateSize();},200);
 }
 
 // ════════════════════════════════════════════════════
