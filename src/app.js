@@ -1304,9 +1304,13 @@ function toggleSample(btn) {
 }
 
 function stripSample() {
+  var sampleMmsis = getFleet().filter(function (x) { return x.source === 'sample'; }).map(function (x) { return String(x.mmsi); });
+  function tiedToSample(rec) {
+    return rec.source === 'sample' || (rec.vesselMmsi && sampleMmsis.indexOf(String(rec.vesselMmsi)) !== -1);
+  }
   saveFleetData(getFleet().filter(function (x) { return x.source !== 'sample'; }));
-  saveVoyages(getVoyages().filter(function (x) { return x.source !== 'sample'; }));
-  saveInvoices(getInvoices().filter(function (x) { return x.source !== 'sample'; }));
+  saveVoyages(getVoyages().filter(function (x) { return !tiedToSample(x); }));
+  saveInvoices(getInvoices().filter(function (x) { return !tiedToSample(x); }));
   saveAlerts(getAlerts().filter(function (x) { return x.source !== 'sample'; }));
   saveNotifs(getNotifs().filter(function (x) { return x.source !== 'sample'; }));
   selMmsi = '';
