@@ -1,6 +1,16 @@
 # API Setup Guide
 
-How to connect NavProfit to real live data.
+NavProfit talks to paid/external APIs **from the server**, not from the browser.
+
+```
+cp .env.example .env
+npm install
+npm start
+```
+
+Put keys in `.env`. Restart `npm start` after changing them. The UI at `/settings` shows whether bunker and invoice AI are configured.
+
+AIS is the exception: paste that key in **Settings → AIS connection**. The WebSocket runs in the browser.
 
 ---
 
@@ -14,10 +24,7 @@ How to connect NavProfit to real live data.
 **How to connect:**
 1. Create account at aisstream.io
 2. Get your API key from the dashboard
-3. Add to `.env`:
-   ```
-   AIS_API_KEY=your_key_here
-   ```
+3. Paste it in the app: **Settings → AIS connection → Save & connect**
 
 **WebSocket connection example:**
 ```javascript

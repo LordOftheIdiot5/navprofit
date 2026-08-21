@@ -25,28 +25,25 @@
 - [x] Alerts evaluate fuel / margin / AIS arrival
 - [x] Sample data is opt-in, not the default dashboard
 
+- [x] Connect OilPriceAPI for live bunker prices (server proxy; indicative fallback)
+- [x] PDF / pasted-text invoice extraction (Claude, confirm before save)
+- [x] User registration / login with per-user store on this server
+
 ### Next
 - [ ] Arrival/departure detection against destination port
-- [ ] Connect OilPriceAPI for live bunker prices
 - [ ] Auto-refresh fuel every 4 hours
 - [ ] Historical price chart per port
-- [ ] PDF / email invoice extraction (Claude API)
-- [ ] One-click confirm before logging extracted invoices
+- [ ] Hosted database (PostgreSQL / Appwrite) instead of `data/` files
 
----
+## Phase 3 — Hosted backend
 
-## Phase 3 — User accounts & persistence
-
-- [ ] User registration / login
-- [ ] Each operator has their own fleet and data
-- [ ] Database (PostgreSQL recommended)
-- [ ] Voyage history stored permanently
+- [x] Local accounts + JSON store (`data/`)
+- [ ] Database (PostgreSQL or Appwrite)
+- [ ] Voyage history stored permanently off-box
 - [ ] Invoice archive
 - [ ] Export to CSV / Excel
 
 ---
-
-## Phase 4 — Mobile app
 
 - [ ] React Native or PWA
 - [ ] Captain view — simplified, phone-friendly

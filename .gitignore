@@ -22,3 +22,7 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Local user data (accounts, sessions, synced stores)
+data/*
+!data/.gitkeep

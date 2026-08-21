@@ -88,6 +88,10 @@ var aisSocket = null, aisConnected = false, aisKey = '', aisMsgCount = 0;
 var dashMap = null, darkTile = null, lightTile = null;
 var dashVessels = {}, dashMarkers = {}, fleetMarkers = {};
 var bboxTimer = null, pnlChart = null;
+var bunkerMeta = { source: 'indicative', updatedAt: null, reason: '' };
+var signedInUser = null;
+var serverOk = false;
+var syncTimer = null;
 
 // ════════════════════════════════════════════════════
 // HELPERS
@@ -114,18 +118,18 @@ function loadSettings() {
   });
   return out;
 }
-function saveSettingsData() { lsSet(KEY_SETTINGS, settings); }
+function saveSettingsData() { lsSet(KEY_SETTINGS, settings); scheduleCloudSync(); }
 
 function getFleet() { return lsGet(KEY_FLEET, []); }
-function saveFleetData(fleet) { lsSet(KEY_FLEET, fleet); }
+function saveFleetData(fleet) { lsSet(KEY_FLEET, fleet); scheduleCloudSync(); }
 function getVoyages() { return lsGet(KEY_VOYAGES, []); }
-function saveVoyages(list) { lsSet(KEY_VOYAGES, list); }
+function saveVoyages(list) { lsSet(KEY_VOYAGES, list); scheduleCloudSync(); }
 function getInvoices() { return lsGet(KEY_INVOICES, []); }
-function saveInvoices(list) { lsSet(KEY_INVOICES, list); }
+function saveInvoices(list) { lsSet(KEY_INVOICES, list); scheduleCloudSync(); }
 function getAlerts() { return lsGet(KEY_ALERTS, []); }
-function saveAlerts(list) { lsSet(KEY_ALERTS, list); }
+function saveAlerts(list) { lsSet(KEY_ALERTS, list); scheduleCloudSync(); }
 function getNotifs() { return lsGet(KEY_NOTIFS, []); }
-function saveNotifs(list) { lsSet(KEY_NOTIFS, list.slice(0, 80)); }
+function saveNotifs(list) { lsSet(KEY_NOTIFS, list.slice(0, 80)); scheduleCloudSync(); }
 
 function findVessel(mmsi) {
   return getFleet().find(function (f) { return String(f.mmsi) === String(mmsi); }) || null;
@@ -713,6 +717,17 @@ function renderBunkerTable() {
   $('bunker-body').innerHTML = ports.map(function (p) {
     return '<tr><td><div class="port-n">' + (PORT_FLAG[p] || '') + ' ' + p + '</div></td><td><div class="price-n">$' + BUNK[p] + '</div></td></tr>';
   }).join('');
+  var badge = $('bunker-badge');
+  var note = $('bunker-note');
+  if (badge) {
+    badge.textContent = bunkerMeta.source === 'live' ? 'LIVE' : 'INDICATIVE';
+    badge.style.color = bunkerMeta.source === 'live' ? 'var(--green)' : 'var(--amber)';
+  }
+  if (note) {
+    note.textContent = bunkerMeta.source === 'live'
+      ? ('OilPriceAPI VLSFO · updated ' + (bunkerMeta.updatedAt ? shortDate(bunkerMeta.updatedAt) : 'just now') + '. Norwegian ports estimated from Rotterdam.')
+      : ('Indicative table' + (bunkerMeta.reason ? ' — ' + bunkerMeta.reason : '') + '. Add OIL_PRICE_API_KEY to .env and run npm start.');
+  }
 }
 
 function renderAlertBadge() {
@@ -941,11 +956,12 @@ function calcEst() {
 
   var destBp = BUNK[to] || 615;
   var bestPort = est.bunkerPriceUSD <= destBp ? from : to;
+  var cheap = Object.keys(BUNK).sort(function (a, b) { return BUNK[a] - BUNK[b]; })[0];
   $('port-comp').innerHTML =
     dr('Bunker at ' + from, '$' + est.bunkerPriceUSD + '/MT', 'color:var(--cyan);')
     + dr('Bunker at ' + to, '$' + destBp + '/MT', 'color:var(--cyan);')
     + dr('Cheaper on route', bestPort + ' · $' + Math.min(est.bunkerPriceUSD, destBp) + '/MT', 'color:var(--green);')
-    + dr('Table cheapest', 'Rotterdam · $602/MT', 'color:var(--green);');
+    + dr('Table cheapest', cheap + ' · $' + BUNK[cheap] + '/MT', 'color:var(--green);');
 }
 
 function er(label, val) {
@@ -1033,6 +1049,8 @@ function openInvoiceModal() {
   fillSelect($('i-vessel'), getFleet(), true);
   $('i-vendor').value = '';
   $('i-amt').value = '';
+  if ($('i-text')) $('i-text').value = '';
+  if ($('i-file')) $('i-file').value = '';
   $('inv-modal').style.display = 'flex';
 }
 function closeInvoiceModal() { $('inv-modal').style.display = 'none'; }
@@ -1244,6 +1262,7 @@ function renderSettings() {
   setToggle($('n-invoice'), settings.notify.invoice);
   setToggle($('n-stale'), settings.notify.stale);
   setToggle($('n-sample'), settings.sample);
+  renderServerStatus();
 }
 
 function togPref(btn, key) {
@@ -1438,6 +1457,238 @@ setInterval(function () { $('clk').textContent = utcNow(); }, 1000);
 setInterval(evaluateAlerts, 15000);
 
 // ════════════════════════════════════════════════════
+// LIVE APIS / AUTH / SYNC
+// ════════════════════════════════════════════════════
+var hydrating = false;
+
+function api(path, opts) {
+  var o = opts || {};
+  var headers = Object.assign({ 'Content-Type': 'application/json' }, o.headers || {});
+  return fetch(path, Object.assign({ credentials: 'same-origin' }, o, { headers: headers }))
+    .then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) {
+          var err = new Error((j && j.error) || ('HTTP ' + r.status));
+          err.status = r.status;
+          throw err;
+        }
+        return j;
+      });
+    });
+}
+
+function scheduleCloudSync() {
+  if (hydrating || !signedInUser || !serverOk) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(pushStore, 1200);
+}
+
+function collectStore() {
+  return {
+    fleet: getFleet(),
+    voyages: getVoyages(),
+    invoices: getInvoices(),
+    alerts: getAlerts(),
+    notifs: getNotifs(),
+    settings: settings
+  };
+}
+
+function applyStore(store) {
+  if (!store) return;
+  hydrating = true;
+  if (store.fleet) lsSet(KEY_FLEET, store.fleet);
+  if (store.voyages) lsSet(KEY_VOYAGES, store.voyages);
+  if (store.invoices) lsSet(KEY_INVOICES, store.invoices);
+  if (store.alerts) lsSet(KEY_ALERTS, store.alerts);
+  if (store.notifs) lsSet(KEY_NOTIFS, store.notifs);
+  if (store.settings) {
+    settings = Object.assign(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), store.settings);
+    if (store.settings.notify) settings.notify = Object.assign({}, DEFAULT_SETTINGS.notify, store.settings.notify);
+    lsSet(KEY_SETTINGS, settings);
+    cur = settings.currency || cur;
+    var sel = $('curr-sel');
+    if (sel) sel.value = cur;
+    setTheme(settings.theme || (isDark ? 'dark' : 'light'));
+  }
+  hydrating = false;
+  renderFleet();
+  renderVoyageLog();
+  renderAlerts();
+  renderNotifs();
+  refreshDashboard();
+}
+
+function pushStore() {
+  if (!signedInUser || !serverOk) return;
+  api('/api/store', { method: 'PUT', body: JSON.stringify({ store: collectStore() }) })
+    .catch(function (e) { console.warn('[sync]', e.message); });
+}
+
+function renderAccountBtn() {
+  var btn = $('account-btn');
+  if (!btn) return;
+  if (!serverOk) {
+    btn.textContent = 'Local';
+    btn.onclick = function () { showToast('Run npm start to enable accounts', 'amber'); };
+    return;
+  }
+  if (signedInUser) {
+    btn.textContent = signedInUser.email.split('@')[0];
+    btn.onclick = function () {
+      if (confirm('Sign out ' + signedInUser.email + '?')) logout();
+    };
+  } else {
+    btn.textContent = 'Sign in';
+    btn.onclick = openAuthModal;
+  }
+}
+
+function renderServerStatus() {
+  if ($('srv-bunker')) $('srv-bunker').textContent = !serverOk ? 'Server offline' : (bunkerMeta.source === 'live' ? 'Live' : 'Key missing');
+  if ($('srv-invoice')) $('srv-invoice').textContent = !serverOk ? 'Server offline' : (window._invoiceAi ? 'Ready' : 'Key missing');
+  if ($('srv-account')) $('srv-account').textContent = signedInUser ? signedInUser.email : (serverOk ? 'Signed out' : 'Local only');
+  if ($('storage-sub')) {
+    $('storage-sub').textContent = signedInUser
+      ? 'Synced to this server as ' + signedInUser.email
+      : 'Browser localStorage. Sign in to sync to this server.';
+  }
+}
+
+function openAuthModal() {
+  if (!serverOk) { showToast('Start the server with npm start to create an account', 'amber'); return; }
+  $('auth-error').style.display = 'none';
+  $('auth-email').value = '';
+  $('auth-pass').value = '';
+  $('auth-modal').style.display = 'flex';
+}
+function closeAuthModal() { $('auth-modal').style.display = 'none'; }
+
+function submitAuth(mode) {
+  var email = $('auth-email').value.trim();
+  var password = $('auth-pass').value;
+  $('auth-error').style.display = 'none';
+  api('/api/auth/' + mode, { method: 'POST', body: JSON.stringify({ email: email, password: password }) })
+    .then(function (j) {
+      signedInUser = j.user;
+      closeAuthModal();
+      renderAccountBtn();
+      renderServerStatus();
+      if (mode === 'login') {
+        return api('/api/store').then(function (s) {
+          if (s.store) applyStore(s.store);
+          else pushStore();
+          showToast('✓ Signed in', 'green');
+        });
+      }
+      pushStore();
+      showToast('✓ Account created', 'green');
+    })
+    .catch(function (e) {
+      $('auth-error').style.display = 'block';
+      $('auth-error').textContent = e.message;
+    });
+}
+
+function logout() {
+  api('/api/auth/logout', { method: 'POST', body: '{}' }).catch(function () {});
+  signedInUser = null;
+  renderAccountBtn();
+  renderServerStatus();
+  showToast('Signed out — data stays in this browser', 'amber');
+}
+
+function extractInvoiceAI() {
+  var btn = $('i-extract-btn');
+  var file = $('i-file') && $('i-file').files && $('i-file').files[0];
+  var text = $('i-text') ? $('i-text').value.trim() : '';
+  if (!file && !text) { showToast('Upload a PDF or paste invoice text', 'amber'); return; }
+  if (!serverOk) { showToast('Run npm start so invoice AI can reach Claude', 'amber'); return; }
+  btn.disabled = true;
+  btn.textContent = 'Extracting…';
+  var done = function () { btn.disabled = false; btn.textContent = 'Extract with AI →'; };
+  var send = function (payload) {
+    return api('/api/invoice/extract', { method: 'POST', body: JSON.stringify(payload) }).then(function (j) {
+      var inv = j.invoice || {};
+      if (inv.vendor) $('i-vendor').value = inv.vendor;
+      if (inv.amount) {
+        var amt = Number(inv.amount);
+        var curCode = String(inv.currency || 'USD').toUpperCase();
+        if (curCode !== 'USD' && FX[curCode] && FX[curCode].r) amt = amt / FX[curCode].r;
+        $('i-amt').value = Math.round(amt * 100) / 100;
+      }
+      if (inv.category && $('i-cat')) {
+        var cat = String(inv.category);
+        if (['fuel', 'port_dues', 'agent_fees', 'other'].indexOf(cat) >= 0) $('i-cat').value = cat;
+      }
+      if (inv.port && $('i-port')) {
+        Array.prototype.forEach.call($('i-port').options, function (o) {
+          if (o.value.toLowerCase() === String(inv.port).toLowerCase()) $('i-port').value = o.value;
+        });
+      }
+      if (inv.vessel && $('i-vessel')) {
+        var match = getFleet().find(function (v) {
+          return String(v.name).toLowerCase() === String(inv.vessel).toLowerCase();
+        });
+        if (match) $('i-vessel').value = match.mmsi;
+      }
+      showToast('✓ Extracted — review and save', 'green');
+    });
+  };
+  var req = file
+    ? new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var data = String(reader.result || '');
+        var b64 = data.split(',')[1] || '';
+        send({ filename: file.name, mediaType: file.type || 'application/pdf', base64: b64 }).then(resolve).catch(reject);
+      };
+      reader.onerror = function () { reject(new Error('Could not read file')); };
+      reader.readAsDataURL(file);
+    })
+    : send({ text: text });
+  req.catch(function (e) { showToast(e.message, 'red'); }).then(done);
+}
+
+function connectLiveApis() {
+  api('/api/status').then(function (st) {
+    serverOk = true;
+    window._invoiceAi = !!st.invoiceAi;
+    signedInUser = st.user || null;
+    renderAccountBtn();
+    renderServerStatus();
+    return Promise.all([
+      api('/api/bunker').then(applyBunker).catch(function () {}),
+      api('/api/fx').then(applyFx).catch(function () {}),
+      signedInUser ? api('/api/store').then(function (s) { if (s.store) applyStore(s.store); }) : Promise.resolve()
+    ]);
+  }).catch(function () {
+    serverOk = false;
+    renderAccountBtn();
+    renderServerStatus();
+  });
+}
+
+function applyBunker(payload) {
+  if (!payload || !payload.prices) return;
+  bunkerMeta = { source: payload.source || 'indicative', updatedAt: payload.updatedAt, reason: payload.reason || '' };
+  Object.keys(payload.prices).forEach(function (p) {
+    if (Number.isFinite(Number(payload.prices[p]))) BUNK[p] = Math.round(Number(payload.prices[p]));
+  });
+  renderBunkerTable();
+  evaluateAlerts();
+  if (document.getElementById('page-voyage').classList.contains('active')) calcEst();
+}
+
+function applyFx(payload) {
+  if (!payload || !payload.rates) return;
+  Object.keys(payload.rates).forEach(function (c) {
+    if (FX[c] && Number.isFinite(Number(payload.rates[c]))) FX[c].r = Number(payload.rates[c]);
+  });
+  refreshDashboard();
+}
+
+// ════════════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════════════
 document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
@@ -1453,6 +1704,10 @@ renderAlerts();
 renderNotifs();
 refreshDashboard();
 evaluateAlerts();
+connectLiveApis();
+setInterval(function () {
+  if (serverOk) api('/api/bunker').then(applyBunker).catch(function () {});
+}, 4 * 60 * 60 * 1000);
 
 (function () {
   var saved = lsGet(KEY_AIS, '');

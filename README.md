@@ -6,36 +6,37 @@ Live AIS tracking, voyage P&L estimates, bunker comparison and fleet management 
 
 ---
 
-## What works today
-
-- Live vessel tracking via aisstream.io (your API key, stored in the browser)
-- Fleet as the source of truth — add from the map or by hand
-- Voyage planner using that vessel’s speed and fuel burn
-- Persisted voyages, invoices and alerts (browser localStorage)
-- Fuel / margin / arrival alerts that actually evaluate
-- Multi-currency display (amounts stored in USD)
-- Light / dark theme, home port, AIS region
-
-Still indicative (not a live feed): global bunker prices. Still not built: user accounts, invoice AI, accounting export.
-
----
-
 ## Quick start
 
-Open `index.html` in a browser, or:
-
 ```
+cp .env.example .env
+# add OIL_PRICE_API_KEY and ANTHROPIC_API_KEY if you have them
+npm install
 npm start
 ```
 
-Then:
+Open http://localhost:3000
 
-1. Settings → paste an [aisstream.io](https://aisstream.io) API key → Save & connect
-2. Click a ship on the map → **Add to fleet**
-3. Voyage planner → estimate and **Create voyage**
-4. Overview KPIs and P&L rail update from that voyage
+1. **Sign in** (top right) to sync fleet/voyages to this server, or keep working locally.
+2. Settings → paste an [aisstream.io](https://aisstream.io) key → Save & connect.
+3. Click a ship → **Add to fleet** → Voyage planner → **Create voyage**.
+4. Log invoice → paste text or PDF → **Extract with AI** (needs `ANTHROPIC_API_KEY`) → Confirm & save.
 
-Optional: Settings → **Sample data** loads a demo fleet without touching your own records.
+Without API keys the app still runs: bunker prices stay indicative, invoice extract shows a clear error, accounts still work on this machine.
+
+---
+
+## What is live
+
+| Data | How |
+|------|-----|
+| Vessel positions | Browser WebSocket to aisstream.io |
+| Bunker VLSFO | Server → OilPriceAPI (`OIL_PRICE_API_KEY`) |
+| FX | Server → open.er-api.com (no key) |
+| Invoice AI | Server → Claude (`ANTHROPIC_API_KEY`) |
+| Accounts + sync | Email/password on this server (`data/`) |
+
+AIS keys stay in the browser. OilPrice and Claude keys stay in `.env` and are never sent to the client.
 
 ---
 
@@ -43,37 +44,13 @@ Optional: Settings → **Sample data** loads a demo fleet without touching your 
 
 ```
 navprofit/
+├── server.js             # Express: APIs, auth, static files
 ├── index.html            # UI shell
-├── src/app.js            # Operational app (fleet, voyages, AIS, alerts)
-├── src/services/         # Future API adapters (fuel, invoices, AIS helper)
-├── src/utils/            # Shared estimate / format helpers
-├── ais-test.html         # Standalone AIS map playground
+├── src/app.js            # Client app
+├── data/                 # Local users + synced stores (gitignored)
 ├── docs/
-│   ├── API_SETUP.md
-│   ├── ROADMAP.md
-│   └── BUSINESS.md
-└── package.json
+└── .env.example
 ```
-
----
-
-## Data sources
-
-| Data | Status | Provider |
-|------|--------|----------|
-| Vessel positions | Live when connected | aisstream.io |
-| Fleet / voyages / invoices / alerts | Local, persisted | Browser |
-| Bunker prices | Indicative table | Static (OilPriceAPI next) |
-| Exchange rates | Static vs USD | Update in `src/app.js` |
-
----
-
-## Tech stack
-
-- Vanilla JS, CSS custom properties
-- Leaflet + CARTO tiles
-- Chart.js
-- No build step required
 
 ---
 
@@ -81,7 +58,7 @@ navprofit/
 
 🟢 Live AIS map and fleet  
 🟢 Voyage estimates persisted to the dashboard  
-🟢 Manual invoice log and evaluating alerts  
-🟡 Bunker prices — indicative table  
-🔴 AI invoice extraction — not connected  
-🔴 User accounts / database — not built  
+🟢 Bunker prices live when OilPriceAPI key is set  
+🟢 Invoice AI extract when Anthropic key is set  
+🟢 Sign-in syncs fleet/voyages/invoices/alerts on this server  
+🟡 Hosted multi-tenant database (Postgres / Appwrite) — not yet  

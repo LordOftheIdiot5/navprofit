@@ -326,6 +326,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <span id="ais-status-txt">AIS offline</span>
     </div>
     <div class="utc" id="clk">--:--:-- UTC</div>
+    <button class="icon-btn" id="account-btn" onclick="openAuthModal()">Sign in</button>
     <button class="icon-btn" id="themebtn" onclick="toggleTheme()">☀</button>
   </div>
 </div>
@@ -404,13 +405,13 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
 
   <div class="grid-3">
     <div class="panel">
-      <div class="ph"><div class="ph-title">Bunker prices — global</div><span class="sample-badge">INDICATIVE</span></div>
+      <div class="ph"><div class="ph-title">Bunker prices — global</div><span class="sample-badge" id="bunker-badge">INDICATIVE</span></div>
       <div class="pb-sm">
         <table class="ftable">
           <thead><tr><th>Port</th><th>VLSFO USD/MT</th></tr></thead>
           <tbody id="bunker-body"></tbody>
         </table>
-        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;">Used for voyage estimates until a live bunker feed is connected.</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;" id="bunker-note">Used for voyage estimates. Live feed requires OIL_PRICE_API_KEY on the server.</div>
       </div>
     </div>
     <div class="panel">
@@ -657,20 +658,43 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       </div>
     </div>
 
+    <!-- SERVER / LIVE APIS -->
+    <div class="settings-section">
+      <div class="settings-header">LIVE DATA (SERVER)</div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div><div class="settings-label">Bunker prices</div><div class="settings-sub">OilPriceAPI marine VLSFO via npm start</div></div>
+          <span class="key-display" id="srv-bunker">Checking…</span>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Invoice AI</div><div class="settings-sub">Claude extraction of PDF / pasted text</div></div>
+          <span class="key-display" id="srv-invoice">Checking…</span>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Account sync</div><div class="settings-sub">Fleet and voyages saved to this server when signed in</div></div>
+          <span class="key-display" id="srv-account">Local only</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
+          Put <code>OIL_PRICE_API_KEY</code> and <code>ANTHROPIC_API_KEY</code> in <code>.env</code>, then run <code>npm start</code>.
+          Keys stay on the server — they are never sent to the browser.
+        </div>
+      </div>
+    </div>
+
     <!-- ABOUT -->
     <div class="settings-section full">
       <div class="settings-header">ABOUT NAVPROFIT</div>
       <div class="settings-body">
         <div class="settings-row">
           <div><div class="settings-label">Version</div></div>
-          <div class="key-display">0.3.0 — operational</div>
+          <div class="key-display">0.4.0 — live APIs</div>
         </div>
         <div class="settings-row">
           <div><div class="settings-label">Data sources</div></div>
-          <div style="font-size:12px;color:var(--muted);text-align:right;">aisstream.io · CartoDB · Chart.js</div>
+          <div style="font-size:12px;color:var(--muted);text-align:right;">aisstream.io · OilPriceAPI · Claude · CartoDB</div>
         </div>
         <div class="settings-row">
-          <div><div class="settings-label">Storage</div><div class="settings-sub">All data stored locally in your browser</div></div>
+          <div><div class="settings-label">Storage</div><div class="settings-sub" id="storage-sub">Browser localStorage. Sign in to sync to this server.</div></div>
           <button class="btn-danger" onclick="clearAllData()">Clear all local data</button>
         </div>
       </div>
@@ -710,6 +734,14 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
   <div class="modal">
     <div class="modal-h"><div class="modal-title">Log invoice</div><button class="modal-close" onclick="closeInvoiceModal()">×</button></div>
     <div class="modal-body">
+      <div class="fg">
+        <label class="flabel">Extract from PDF or text</label>
+        <input class="finput" type="file" id="i-file" accept="application/pdf,image/*" style="padding:7px 10px;"/>
+      </div>
+      <div class="fg">
+        <textarea class="finput" id="i-text" rows="3" placeholder="Or paste invoice / email text…" style="min-height:72px;resize:vertical;font-family:'DM Sans',sans-serif;"></textarea>
+      </div>
+      <button class="btn btn-s" id="i-extract-btn" onclick="extractInvoiceAI()" style="width:100%;margin-bottom:14px;">Extract with AI →</button>
       <div class="fgrid">
         <div class="fg"><label class="flabel">Vendor</label><input class="finput" type="text" id="i-vendor" placeholder="e.g. Rotterdam Bunkers"/></div>
         <div class="fg"><label class="flabel">Amount (USD)</label><input class="finput" type="number" id="i-amt" placeholder="e.g. 26400"/></div>
@@ -726,7 +758,24 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
         <div class="fg"><label class="flabel">Status</label><select class="fselect" id="i-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
       </div>
     </div>
-    <div class="modal-footer"><button class="btn btn-s" onclick="closeInvoiceModal()">Cancel</button><button class="btn btn-p" onclick="saveInvoice()">Save invoice →</button></div>
+    <div class="modal-footer"><button class="btn btn-s" onclick="closeInvoiceModal()">Cancel</button><button class="btn btn-p" onclick="saveInvoice()">Confirm &amp; save →</button></div>
+  </div>
+</div>
+
+<!-- ── AUTH MODAL ─────────────────────────────────────────── -->
+<div class="modal-bg" id="auth-modal" style="display:none;" onclick="if(event.target===this)closeAuthModal()">
+  <div class="modal" style="width:400px;">
+    <div class="modal-h"><div class="modal-title" id="auth-title">Sign in</div><button class="modal-close" onclick="closeAuthModal()">×</button></div>
+    <div class="modal-body">
+      <div class="fg"><label class="flabel">Email</label><input class="finput" type="email" id="auth-email" placeholder="you@company.no"/></div>
+      <div class="fg"><label class="flabel">Password</label><input class="finput" type="password" id="auth-pass" placeholder="At least 8 characters"/></div>
+      <div id="auth-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;">Accounts live on this NavProfit server. Signing in syncs fleet, voyages, invoices and alerts across browsers.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="submitAuth('register')">Create account</button>
+      <button class="btn btn-p" onclick="submitAuth('login')">Sign in →</button>
+    </div>
   </div>
 </div>
 
