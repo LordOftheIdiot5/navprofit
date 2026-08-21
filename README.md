@@ -9,20 +9,20 @@ Live AIS tracking, voyage P&L estimates, bunker comparison and fleet management 
 ## Quick start
 
 ```
-cp .env.example .env
-# add OIL_PRICE_API_KEY and ANTHROPIC_API_KEY if you have them
 npm install
 npm start
 ```
 
 Open http://localhost:3000
 
-1. **Sign in** (top right) to sync fleet/voyages to this server, or keep working locally.
-2. Settings → paste an [aisstream.io](https://aisstream.io) key → Save & connect.
+1. **Sign in** (top right) to sync this browser to your account, or keep working locally.
+2. Settings → paste **your** keys if you want them:
+   - aisstream.io for the live map
+   - OilPriceAPI for live bunker prices (optional)
+   - Anthropic for invoice extract (optional)
 3. Click a ship → **Add to fleet** → Voyage planner → **Create voyage**.
-4. Log invoice → paste text or PDF → **Extract with AI** (needs `ANTHROPIC_API_KEY`) → Confirm & save.
 
-Without API keys the app still runs: bunker prices stay indicative, invoice extract shows a clear error, accounts still work on this machine.
+NavProfit does not ship a shared OilPrice or Claude key. Each user brings their own, or skips those features. A key in `.env` is only an optional fallback for the installer.
 
 ---
 
@@ -30,13 +30,13 @@ Without API keys the app still runs: bunker prices stay indicative, invoice extr
 
 | Data | How |
 |------|-----|
-| Vessel positions | Browser WebSocket to aisstream.io |
-| Bunker VLSFO | Server → OilPriceAPI (`OIL_PRICE_API_KEY`) |
+| Vessel positions | Your aisstream.io key in Settings (browser WebSocket) |
+| Bunker VLSFO | Your OilPriceAPI key in Settings (optional; otherwise indicative) |
 | FX | Server → open.er-api.com (no key) |
-| Invoice AI | Server → Claude (`ANTHROPIC_API_KEY`) |
+| Invoice AI | Your Anthropic key in Settings (optional) |
 | Accounts + sync | Email/password on this server (`data/`) |
 
-AIS keys stay in the browser. OilPrice and Claude keys stay in `.env` and are never sent to the client.
+Your OilPrice and Anthropic keys are sent to this NavProfit server only to proxy the vendor APIs (browsers block those calls directly). If you sign in, they are stored on your account on this machine — not shared with other users.
 
 ---
 
@@ -58,7 +58,7 @@ navprofit/
 
 🟢 Live AIS map and fleet  
 🟢 Voyage estimates persisted to the dashboard  
-🟢 Bunker prices live when OilPriceAPI key is set  
-🟢 Invoice AI extract when Anthropic key is set  
+🟢 Bunker prices live when *you* add an OilPriceAPI key in Settings  
+🟢 Invoice AI when *you* add an Anthropic key in Settings  
 🟢 Sign-in syncs fleet/voyages/invoices/alerts on this server  
 🟡 Hosted multi-tenant database (Postgres / Appwrite) — not yet  

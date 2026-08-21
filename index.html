@@ -411,7 +411,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
           <thead><tr><th>Port</th><th>VLSFO USD/MT</th></tr></thead>
           <tbody id="bunker-body"></tbody>
         </table>
-        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;" id="bunker-note">Used for voyage estimates. Live feed requires OIL_PRICE_API_KEY on the server.</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;" id="bunker-note">Indicative table. Connect your OilPriceAPI key in Settings for live VLSFO.</div>
       </div>
     </div>
     <div class="panel">
@@ -564,8 +564,61 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
           <button class="btn btn-s" onclick="clearAISKey()">Remove key</button>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
-          Your key is stored in your browser only and never uploaded anywhere.<br/>
+          Your key stays in this browser. The map talks to aisstream.io directly.<br/>
           Get a free key at <a href="https://aisstream.io" target="_blank" style="color:var(--cyan);">aisstream.io</a> — no credit card required.
+        </div>
+      </div>
+    </div>
+
+    <!-- BUNKER PRICES (PER USER) -->
+    <div class="settings-section">
+      <div class="settings-header">BUNKER PRICES — OPTIONAL</div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div><div class="settings-label">Your OilPriceAPI key</div><div class="settings-sub">Live VLSFO by port. Skip this if indicative prices are enough.</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="key-status-dot" id="oil-dot" style="background:var(--muted);"></div>
+            <span class="key-display" id="oil-display">Not set</span>
+          </div>
+        </div>
+        <div class="fg" style="margin-top:14px;">
+          <label class="flabel">Enter or update API key</label>
+          <input class="finput" type="password" id="settings-oil-key" placeholder="Paste your OilPriceAPI key..."/>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-p" onclick="saveOilKey()">Save &amp; fetch prices →</button>
+          <button class="btn btn-s" onclick="clearOilKey()">Remove key</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
+          This is <strong>your</strong> key and your API quota — not a shared NavProfit key.
+          Get one at <a href="https://docs.oilpriceapi.com" target="_blank" style="color:var(--cyan);">oilpriceapi.com</a>.
+          If you sign in, it is saved to your account on this server only.
+        </div>
+      </div>
+    </div>
+
+    <!-- INVOICE AI (PER USER) -->
+    <div class="settings-section">
+      <div class="settings-header">INVOICE AI — OPTIONAL</div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div><div class="settings-label">Your Anthropic API key</div><div class="settings-sub">Extract vendor, amount, port and vessel from a PDF or pasted invoice.</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="key-status-dot" id="ai-dot" style="background:var(--muted);"></div>
+            <span class="key-display" id="ai-display">Not set</span>
+          </div>
+        </div>
+        <div class="fg" style="margin-top:14px;">
+          <label class="flabel">Enter or update API key</label>
+          <input class="finput" type="password" id="settings-ai-key" placeholder="Paste your Anthropic API key..."/>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-p" onclick="saveAiKey()">Save key →</button>
+          <button class="btn btn-s" onclick="clearAiKey()">Remove key</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
+          Optional. You pay Anthropic for what you extract — NavProfit does not share a company key.
+          Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--cyan);">console.anthropic.com</a>.
         </div>
       </div>
     </div>
@@ -663,11 +716,11 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <div class="settings-header">LIVE DATA (SERVER)</div>
       <div class="settings-body">
         <div class="settings-row">
-          <div><div class="settings-label">Bunker prices</div><div class="settings-sub">OilPriceAPI marine VLSFO via npm start</div></div>
+          <div><div class="settings-label">Bunker prices</div><div class="settings-sub">Your OilPriceAPI key — not a shared company feed</div></div>
           <span class="key-display" id="srv-bunker">Checking…</span>
         </div>
         <div class="settings-row">
-          <div><div class="settings-label">Invoice AI</div><div class="settings-sub">Claude extraction of PDF / pasted text</div></div>
+          <div><div class="settings-label">Invoice AI</div><div class="settings-sub">Your Anthropic key — skip if you log invoices by hand</div></div>
           <span class="key-display" id="srv-invoice">Checking…</span>
         </div>
         <div class="settings-row">
@@ -675,8 +728,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
           <span class="key-display" id="srv-account">Local only</span>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
-          Put <code>OIL_PRICE_API_KEY</code> and <code>ANTHROPIC_API_KEY</code> in <code>.env</code>, then run <code>npm start</code>.
-          Keys stay on the server — they are never sent to the browser.
+          Each operator connects their own keys in the panels above. A key in <code>.env</code> is only an optional fallback for the person who installed this server.
         </div>
       </div>
     </div>

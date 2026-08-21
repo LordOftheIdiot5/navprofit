@@ -25,8 +25,8 @@
 - [x] Alerts evaluate fuel / margin / AIS arrival
 - [x] Sample data is opt-in, not the default dashboard
 
-- [x] Connect OilPriceAPI for live bunker prices (server proxy; indicative fallback)
-- [x] PDF / pasted-text invoice extraction (Claude, confirm before save)
+- [x] Connect OilPriceAPI for live bunker prices (each user pastes their own key in Settings; indicative fallback)
+- [x] PDF / pasted-text invoice extraction (each user pastes their Anthropic key; confirm before save)
 - [x] User registration / login with per-user store on this server
 
 ### Next

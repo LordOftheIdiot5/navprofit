@@ -4,6 +4,8 @@
 // STORAGE KEYS & CONSTANTS
 // ════════════════════════════════════════════════════
 var KEY_AIS = 'navprofit_ais_key';
+var KEY_OIL = 'navprofit_oil_key';
+var KEY_AI = 'navprofit_anthropic_key';
 var KEY_FLEET = 'navprofit_fleet';
 var KEY_SETTINGS = 'navprofit_settings';
 var KEY_VOYAGES = 'navprofit_voyages';
@@ -726,7 +728,7 @@ function renderBunkerTable() {
   if (note) {
     note.textContent = bunkerMeta.source === 'live'
       ? ('OilPriceAPI VLSFO · updated ' + (bunkerMeta.updatedAt ? shortDate(bunkerMeta.updatedAt) : 'just now') + '. Norwegian ports estimated from Rotterdam.')
-      : ('Indicative table' + (bunkerMeta.reason ? ' — ' + bunkerMeta.reason : '') + '. Add OIL_PRICE_API_KEY to .env and run npm start.');
+      : ('Indicative table' + (bunkerMeta.reason ? ' — ' + bunkerMeta.reason : '') + '. Add your OilPriceAPI key in Settings to go live.');
   }
 }
 
@@ -1249,9 +1251,9 @@ function evaluateAlerts() {
 // SETTINGS & SAMPLE DATA
 // ════════════════════════════════════════════════════
 function renderSettings() {
-  var key = lsGet(KEY_AIS, '');
-  $('key-dot').style.background = key ? 'var(--green)' : 'var(--muted)';
-  $('key-display').textContent = key ? key.substring(0, 8) + '••••••••' : 'Not set';
+  paintKey('key-dot', 'key-display', lsGet(KEY_AIS, ''));
+  paintKey('oil-dot', 'oil-display', lsGet(KEY_OIL, ''));
+  paintKey('ai-dot', 'ai-display', lsGet(KEY_AI, ''));
   setTheme(isDark ? 'dark' : 'light');
   $('settings-currency').value = cur;
   if ($('settings-homeport')) $('settings-homeport').value = settings.homePort;
@@ -1263,6 +1265,12 @@ function renderSettings() {
   setToggle($('n-stale'), settings.notify.stale);
   setToggle($('n-sample'), settings.sample);
   renderServerStatus();
+}
+
+function paintKey(dotId, displayId, key) {
+  var dot = $(dotId), display = $(displayId);
+  if (dot) dot.style.background = key ? 'var(--green)' : 'var(--muted)';
+  if (display) display.textContent = key ? String(key).substring(0, 8) + '••••••••' : 'Not set';
 }
 
 function togPref(btn, key) {
@@ -1294,6 +1302,47 @@ function clearAISKey() {
   renderSettings();
   refreshDashboard();
   showToast('AIS key removed', 'red');
+}
+
+function saveUserKey(inputId, storageKey, okMsg) {
+  var el = $(inputId);
+  var key = el ? el.value.trim() : '';
+  if (!key) {
+    if (el) { el.style.borderColor = 'var(--red)'; setTimeout(function () { el.style.borderColor = ''; }, 2000); }
+    return false;
+  }
+  lsSet(storageKey, key);
+  el.value = '';
+  renderSettings();
+  scheduleCloudSync();
+  showToast(okMsg, 'green');
+  return true;
+}
+
+function saveOilKey() {
+  if (!saveUserKey('settings-oil-key', KEY_OIL, '✓ OilPriceAPI key saved — fetching prices')) return;
+  refreshBunker();
+}
+
+function clearOilKey() {
+  if (!confirm('Remove your OilPriceAPI key? Bunker prices go back to the indicative table.')) return;
+  lsDel(KEY_OIL);
+  renderSettings();
+  scheduleCloudSync();
+  refreshBunker();
+  showToast('OilPriceAPI key removed', 'red');
+}
+
+function saveAiKey() {
+  saveUserKey('settings-ai-key', KEY_AI, '✓ Anthropic key saved — invoice extract is ready');
+}
+
+function clearAiKey() {
+  if (!confirm('Remove your Anthropic key? Invoice extract will be disabled.')) return;
+  lsDel(KEY_AI);
+  renderSettings();
+  scheduleCloudSync();
+  showToast('Anthropic key removed', 'red');
 }
 
 function updateAISRegion() {
@@ -1483,6 +1532,20 @@ function scheduleCloudSync() {
   syncTimer = setTimeout(pushStore, 1200);
 }
 
+function userApiHeaders() {
+  var h = {};
+  var oil = lsGet(KEY_OIL, '');
+  var ai = lsGet(KEY_AI, '');
+  if (oil) h['X-Oil-Price-Key'] = oil;
+  if (ai) h['X-Anthropic-Key'] = ai;
+  return h;
+}
+
+function refreshBunker() {
+  if (!serverOk) return;
+  api('/api/bunker', { headers: userApiHeaders() }).then(applyBunker).catch(function () {});
+}
+
 function collectStore() {
   return {
     fleet: getFleet(),
@@ -1490,7 +1553,8 @@ function collectStore() {
     invoices: getInvoices(),
     alerts: getAlerts(),
     notifs: getNotifs(),
-    settings: settings
+    settings: settings,
+    keys: { oil: lsGet(KEY_OIL, '') || '', anthropic: lsGet(KEY_AI, '') || '' }
   };
 }
 
@@ -1502,6 +1566,12 @@ function applyStore(store) {
   if (store.invoices) lsSet(KEY_INVOICES, store.invoices);
   if (store.alerts) lsSet(KEY_ALERTS, store.alerts);
   if (store.notifs) lsSet(KEY_NOTIFS, store.notifs);
+  if (store.keys) {
+    if (store.keys.oil) lsSet(KEY_OIL, store.keys.oil);
+    else lsDel(KEY_OIL);
+    if (store.keys.anthropic) lsSet(KEY_AI, store.keys.anthropic);
+    else lsDel(KEY_AI);
+  }
   if (store.settings) {
     settings = Object.assign(JSON.parse(JSON.stringify(DEFAULT_SETTINGS)), store.settings);
     if (store.settings.notify) settings.notify = Object.assign({}, DEFAULT_SETTINGS.notify, store.settings.notify);
@@ -1517,6 +1587,7 @@ function applyStore(store) {
   renderAlerts();
   renderNotifs();
   refreshDashboard();
+  refreshBunker();
 }
 
 function pushStore() {
@@ -1545,8 +1616,18 @@ function renderAccountBtn() {
 }
 
 function renderServerStatus() {
-  if ($('srv-bunker')) $('srv-bunker').textContent = !serverOk ? 'Server offline' : (bunkerMeta.source === 'live' ? 'Live' : 'Key missing');
-  if ($('srv-invoice')) $('srv-invoice').textContent = !serverOk ? 'Server offline' : (window._invoiceAi ? 'Ready' : 'Key missing');
+  var hasOil = !!lsGet(KEY_OIL, '');
+  var hasAi = !!lsGet(KEY_AI, '');
+  if ($('srv-bunker')) {
+    $('srv-bunker').textContent = !serverOk ? 'Server offline'
+      : hasOil ? 'Your key'
+      : (window._bunkerFallback ? 'Install default' : 'Not connected');
+  }
+  if ($('srv-invoice')) {
+    $('srv-invoice').textContent = !serverOk ? 'Server offline'
+      : hasAi ? 'Your key'
+      : (window._invoiceFallback ? 'Install default' : 'Not connected');
+  }
   if ($('srv-account')) $('srv-account').textContent = signedInUser ? signedInUser.email : (serverOk ? 'Signed out' : 'Local only');
   if ($('storage-sub')) {
     $('storage-sub').textContent = signedInUser
@@ -1604,11 +1685,16 @@ function extractInvoiceAI() {
   var text = $('i-text') ? $('i-text').value.trim() : '';
   if (!file && !text) { showToast('Upload a PDF or paste invoice text', 'amber'); return; }
   if (!serverOk) { showToast('Run npm start so invoice AI can reach Claude', 'amber'); return; }
+  if (!lsGet(KEY_AI, '') && !window._invoiceFallback) {
+    showToast('Add your Anthropic key in Settings first', 'amber');
+    gotoPage('settings');
+    return;
+  }
   btn.disabled = true;
   btn.textContent = 'Extracting…';
   var done = function () { btn.disabled = false; btn.textContent = 'Extract with AI →'; };
   var send = function (payload) {
-    return api('/api/invoice/extract', { method: 'POST', body: JSON.stringify(payload) }).then(function (j) {
+    return api('/api/invoice/extract', { method: 'POST', headers: userApiHeaders(), body: JSON.stringify(payload) }).then(function (j) {
       var inv = j.invoice || {};
       if (inv.vendor) $('i-vendor').value = inv.vendor;
       if (inv.amount) {
@@ -1653,15 +1739,20 @@ function extractInvoiceAI() {
 function connectLiveApis() {
   api('/api/status').then(function (st) {
     serverOk = true;
-    window._invoiceAi = !!st.invoiceAi;
+    window._bunkerFallback = !!st.bunkerFallback;
+    window._invoiceFallback = !!st.invoiceFallback;
     signedInUser = st.user || null;
     renderAccountBtn();
     renderServerStatus();
-    return Promise.all([
-      api('/api/bunker').then(applyBunker).catch(function () {}),
-      api('/api/fx').then(applyFx).catch(function () {}),
-      signedInUser ? api('/api/store').then(function (s) { if (s.store) applyStore(s.store); }) : Promise.resolve()
-    ]);
+    var hydrate = signedInUser
+      ? api('/api/store').then(function (s) { if (s.store) applyStore(s.store); })
+      : Promise.resolve();
+    return hydrate.then(function () {
+      return Promise.all([
+        api('/api/bunker', { headers: userApiHeaders() }).then(applyBunker).catch(function () {}),
+        api('/api/fx').then(applyFx).catch(function () {})
+      ]);
+    });
   }).catch(function () {
     serverOk = false;
     renderAccountBtn();
@@ -1706,7 +1797,7 @@ refreshDashboard();
 evaluateAlerts();
 connectLiveApis();
 setInterval(function () {
-  if (serverOk) api('/api/bunker').then(applyBunker).catch(function () {});
+  if (serverOk) refreshBunker();
 }, 4 * 60 * 60 * 1000);
 
 (function () {

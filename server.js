@@ -65,28 +65,30 @@ app.get('/api/status', (req, res) => {
   const user = currentUser(req);
   res.json({
     ok: true,
-    bunker: process.env.OIL_PRICE_API_KEY ? 'configured' : 'missing_key',
-    invoiceAi: Boolean(process.env.ANTHROPIC_API_KEY),
+    bunkerFallback: Boolean(process.env.OIL_PRICE_API_KEY),
+    invoiceFallback: Boolean(process.env.ANTHROPIC_API_KEY),
     fx: true,
     user: user ? { id: user.id, email: user.email } : null
   });
 });
 
 const BUNKER_TTL_MS = 4 * 60 * 60 * 1000;
-let bunkerCache = null;
+const bunkerCaches = {};
 
 app.get('/api/bunker', async (req, res) => {
-  const key = process.env.OIL_PRICE_API_KEY;
+  const key = resolveKey(req, 'x-oil-price-key', 'OIL_PRICE_API_KEY', 'oil');
   if (!key) {
     return res.json({
       source: 'indicative',
-      reason: 'OIL_PRICE_API_KEY not set',
+      reason: 'No OilPriceAPI key yet — add yours in Settings',
       updatedAt: null,
       prices: FALLBACK_BUNKER
     });
   }
-  if (bunkerCache && (Date.now() - bunkerCache.at) < BUNKER_TTL_MS) {
-    return res.json(bunkerCache.payload);
+  const cacheId = fingerprint(key);
+  const cached = bunkerCaches[cacheId];
+  if (cached && (Date.now() - cached.at) < BUNKER_TTL_MS) {
+    return res.json(cached.payload);
   }
   try {
     const prices = await fetchMarineFuels(key);
@@ -95,13 +97,13 @@ app.get('/api/bunker', async (req, res) => {
       updatedAt: new Date().toISOString(),
       prices
     };
-    bunkerCache = { at: Date.now(), payload };
+    bunkerCaches[cacheId] = { at: Date.now(), payload };
     return res.json(payload);
   } catch (err) {
-    console.error('[bunker]', err.message);
+    console.error('[bunker]', sanitizeErr(err.message));
     return res.json({
       source: 'indicative',
-      reason: err.message || 'OilPriceAPI request failed',
+      reason: 'OilPriceAPI request failed — check your key in Settings',
       updatedAt: null,
       prices: FALLBACK_BUNKER
     });
@@ -135,10 +137,10 @@ app.get('/api/fx', async (req, res) => {
 });
 
 app.post('/api/invoice/extract', async (req, res) => {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const key = resolveKey(req, 'x-anthropic-key', 'ANTHROPIC_API_KEY', 'anthropic');
   if (!key) {
     return res.status(503).json({
-      error: 'ANTHROPIC_API_KEY not set. Add it to .env and restart npm start.'
+      error: 'Add your Anthropic API key in Settings to extract invoices.'
     });
   }
   const { text, filename, mediaType, base64 } = req.body || {};
@@ -149,8 +151,8 @@ app.post('/api/invoice/extract', async (req, res) => {
     const extracted = await extractInvoice(key, { text, filename, mediaType, base64 });
     return res.json({ ok: true, invoice: extracted });
   } catch (err) {
-    console.error('[invoice]', err.message);
-    return res.status(502).json({ error: err.message || 'Extraction failed' });
+    console.error('[invoice]', sanitizeErr(err.message));
+    return res.status(502).json({ error: 'Extraction failed — check your Anthropic key in Settings.' });
   }
 });
 
@@ -231,6 +233,10 @@ app.put('/api/store', (req, res) => {
     alerts: store.alerts || [],
     notifs: store.notifs || [],
     settings: store.settings || {},
+    keys: {
+      oil: store.keys && store.keys.oil ? String(store.keys.oil) : '',
+      anthropic: store.keys && store.keys.anthropic ? String(store.keys.anthropic) : ''
+    },
     savedAt: new Date().toISOString()
   });
   res.json({ ok: true });
@@ -241,9 +247,30 @@ app.use(express.static(__dirname, { index: 'index.html', dotfiles: 'deny' }));
 
 app.listen(PORT, () => {
   console.log('NavProfit running on http://localhost:' + PORT);
-  console.log('  bunker   :', process.env.OIL_PRICE_API_KEY ? 'OilPriceAPI key present' : 'indicative (no OIL_PRICE_API_KEY)');
-  console.log('  invoice  :', process.env.ANTHROPIC_API_KEY ? 'Claude key present' : 'disabled (no ANTHROPIC_API_KEY)');
+  console.log('  per-user keys in Settings; .env keys are optional install-wide fallbacks');
+  console.log('  bunker fallback :', process.env.OIL_PRICE_API_KEY ? 'yes' : 'no');
+  console.log('  invoice fallback:', process.env.ANTHROPIC_API_KEY ? 'yes' : 'no');
 });
+
+function resolveKey(req, headerName, envName, storeField) {
+  const fromHeader = String(req.headers[headerName] || '').trim();
+  if (fromHeader) return fromHeader;
+  const user = currentUser(req);
+  if (user && storeField) {
+    const store = readJson(storePath(user.id), null);
+    const fromStore = store && store.keys && String(store.keys[storeField] || '').trim();
+    if (fromStore) return fromStore;
+  }
+  return String(process.env[envName] || '').trim();
+}
+
+function fingerprint(value) {
+  return crypto.createHash('sha256').update(String(value)).digest('hex').slice(0, 16);
+}
+
+function sanitizeErr(msg) {
+  return String(msg || '').replace(/sk-[a-zA-Z0-9_-]+/g, 'sk-…').replace(/[a-f0-9]{20,}/gi, '[redacted]');
+}
 
 function ensureDataDirs() {
   fs.mkdirSync(STORES_DIR, { recursive: true });

@@ -8,9 +8,11 @@ npm install
 npm start
 ```
 
-Put keys in `.env`. Restart `npm start` after changing them. The UI at `/settings` shows whether bunker and invoice AI are configured.
+Put keys in **Settings** in the app. Each operator uses their own OilPriceAPI and Anthropic keys (same pattern as AIS).
 
-AIS is the exception: paste that key in **Settings → AIS connection**. The WebSocket runs in the browser.
+`.env` on the server is optional: only if you installed NavProfit and want a house-wide fallback when a user has not pasted a key yet.
+
+AIS is pasted in **Settings → AIS connection**. The WebSocket runs in the browser.
 
 ---
 
@@ -62,6 +64,8 @@ socket.onmessage = (event) => {
 - Cost: Free tier, then ~$30/month
 - What you get: VLSFO, MGO, HFO prices per port
 
+**How to connect:** In the app, **Settings → Bunker prices — optional** → paste **your** OilPriceAPI key. Each user has their own quota.
+
 **Endpoint:**
 ```
 GET https://api.oilpriceapi.com/v1/prices/marine-fuels/latest
@@ -92,20 +96,11 @@ Authorization: Token YOUR_API_KEY
 
 ---
 
-## 3. Exchange rates
+## 3. Exchange rates — shared, no key
 
-**Provider: exchangerate-api.com**
-- Website: https://www.exchangerate-api.com
-- Cost: Free for 1,500 requests/month
-- What you get: Live NOK, USD, EUR, GBP, SGD rates
+This is the exception. FX is a free public feed (`open.er-api.com`) proxied by the server. No user key, no `.env` key. Every operator sees the same USD/NOK/EUR/GBP/SGD rates.
 
-```javascript
-const res = await fetch(
-  `https://v6.exchangerate-api.com/v6/${API_KEY}/latest/USD`
-);
-const data = await res.json();
-// data.conversion_rates.NOK etc
-```
+Oil prices and invoice AI are **not** like this — those stay per-user so quotas are not shared.
 
 ---
 
@@ -114,6 +109,8 @@ const data = await res.json();
 **Provider: Anthropic**
 - Already used in this prototype
 - Cost: Pay per token — very cheap for invoices
+
+**How to connect:** **Settings → Invoice AI — optional** → paste **your** Anthropic key. Skip this if you only log invoices by hand.
 
 **How it works:**
 ```javascript
@@ -162,17 +159,18 @@ const response = await fetch('https://api.anthropic.com/v1/messages', {
 
 ## 5. Environment variables
 
-Create a `.env` file in project root:
+`.env` is optional. Normal use is per-user keys in Settings.
+
+If you installed the server and want a house-wide fallback when someone has not pasted a key:
 
 ```
-AIS_API_KEY=
 OIL_PRICE_API_KEY=
-EXCHANGE_RATE_API_KEY=
 ANTHROPIC_API_KEY=
+SESSION_SECRET=
+PORT=3000
 ```
 
 **Never commit `.env` to git.**
-Add `.env` to your `.gitignore`.
 
 ---
 
