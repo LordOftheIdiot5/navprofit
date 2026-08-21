@@ -41,10 +41,12 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
 .tnav{font-size:13px;padding:6px 14px;border-radius:6px;cursor:pointer;color:var(--muted);border:none;background:transparent;transition:all 0.15s;position:relative;font-family:'DM Sans',sans-serif;}
 .tnav:hover{color:var(--text);background:var(--faint);}
 .tnav.active{color:var(--cyan);background:var(--faint);}
-.tnav .ndot{width:5px;height:5px;background:var(--red);border-radius:50%;position:absolute;top:5px;right:8px;}
+.tnav .ndot{width:5px;height:5px;background:var(--red);border-radius:50%;position:absolute;top:5px;right:8px;display:none;}
+.tnav .ndot.show{display:block;}
 .topbar-right{display:flex;align-items:center;gap:8px;}
 .live-pill{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:11px;border-radius:20px;padding:4px 10px;border:1px solid var(--border);color:var(--muted);transition:all 0.3s;}
 .live-pill.on{color:var(--green);background:#0a2a1e;border-color:#1a4a36;}
+[data-theme="light"] .live-pill.on{background:#f0fdf4;border-color:#bbf7d0;color:#15803d;}
 .live-dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
 .live-dot.blink{animation:blink 2s infinite;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:0.2;}}
@@ -172,8 +174,17 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
 .price-n{font-family:'DM Mono',monospace;font-size:13px;color:var(--cyan);}
 .chg-up{font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:4px;background:#2a0a0a;color:var(--red);}
 .chg-dn{font-family:'DM Mono',monospace;font-size:10px;padding:2px 6px;border-radius:4px;background:#0a2a1e;color:var(--green);}
-[data-theme="light"] .chg-up{background:#fef2f2;}.
+[data-theme="light"] .chg-up{background:#fef2f2;}
 [data-theme="light"] .chg-dn{background:#f0fdf4;}
+
+.empty{text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;line-height:1.6;}
+.empty strong{display:block;color:var(--text);font-weight:500;margin-bottom:6px;}
+.empty .btn{margin-top:12px;}
+.sample-badge{font-family:'DM Mono',monospace;font-size:9px;color:var(--amber);border:1px solid var(--border);border-radius:4px;padding:1px 6px;letter-spacing:0.4px;}
+.chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;padding:16px;text-align:center;}
+#vdetail-box{border-top:1px solid var(--border);margin-top:10px;padding-top:12px;}
+.alert-extra{display:none;}
+.alert-extra.on{display:block;}
 
 /* ── INVOICES ─────────────────────────────────────────── */
 .irow{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--faint);}
@@ -302,7 +313,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
     <button class="tnav active" onclick="gotoPage('dashboard',this)">Overview</button>
     <button class="tnav" onclick="gotoPage('fleet',this)">Fleet</button>
     <button class="tnav" onclick="gotoPage('voyage',this)">Voyage planner</button>
-    <button class="tnav" onclick="gotoPage('alerts',this)">Alerts<span class="ndot"></span></button>
+    <button class="tnav" onclick="gotoPage('alerts',this)">Alerts<span class="ndot" id="alert-ndot"></span></button>
     <button class="tnav" onclick="gotoPage('settings',this)">Settings</button>
   </div>
   <div class="topbar-right">
@@ -315,6 +326,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <span id="ais-status-txt">AIS offline</span>
     </div>
     <div class="utc" id="clk">--:--:-- UTC</div>
+    <button class="icon-btn" id="account-btn" onclick="openAuthModal()">Sign in</button>
     <button class="icon-btn" id="themebtn" onclick="toggleTheme()">☀</button>
   </div>
 </div>
@@ -326,16 +338,16 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
 <div class="main">
 
   <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-label">Fleet P&L today</div><div class="kpi-val g" id="kpi-pnl">+84,320</div><div class="kpi-sub" id="kpi-curr">NOK · 4 voyages</div></div>
-    <div class="kpi"><div class="kpi-label">Avg bunker/nm</div><div class="kpi-val a">142</div><div class="kpi-sub">NOK/nm · VLSFO</div></div>
-    <div class="kpi"><div class="kpi-label">Pending invoices</div><div class="kpi-val c">218,500</div><div class="kpi-sub">NOK · 4 open</div></div>
-    <div class="kpi"><div class="kpi-label">Vessels tracked</div><div class="kpi-val" id="kpi-vessels">0</div><div class="kpi-sub" id="kpi-vsub">AIS offline</div></div>
-    <div class="kpi"><div class="kpi-label">Alerts</div><div class="kpi-val r">2</div><div class="kpi-sub">triggered now</div></div>
+    <div class="kpi"><div class="kpi-label">Active voyage P&amp;L</div><div class="kpi-val" id="kpi-pnl">—</div><div class="kpi-sub" id="kpi-curr">No voyages yet</div></div>
+    <div class="kpi"><div class="kpi-label">Avg bunker / nm</div><div class="kpi-val a" id="kpi-bunker">—</div><div class="kpi-sub" id="kpi-bunker-sub">From active voyages</div></div>
+    <div class="kpi"><div class="kpi-label">Pending invoices</div><div class="kpi-val c" id="kpi-inv">—</div><div class="kpi-sub" id="kpi-inv-sub">0 open</div></div>
+    <div class="kpi"><div class="kpi-label">Fleet vessels</div><div class="kpi-val" id="kpi-vessels">0</div><div class="kpi-sub" id="kpi-vsub">None registered</div></div>
+    <div class="kpi"><div class="kpi-label">Alerts</div><div class="kpi-val" id="kpi-alerts">0</div><div class="kpi-sub" id="kpi-alerts-sub">none triggered</div></div>
   </div>
 
-  <div class="insight">
+  <div class="insight" id="insight-bar">
     <div class="insight-ico">◈</div>
-    <div class="insight-text"><strong>AI insight —</strong> Rotterdam VLSFO is $23/MT below Singapore today. Vessels transiting via Suez should consider bunkering at Rotterdam. Estimated fleet saving: <strong id="ins-saving">NOK 44,200</strong> this month.</div>
+    <div class="insight-text" id="insight-text">Add a vessel and create a voyage to start live P&amp;L tracking.</div>
   </div>
 
   <!-- MAP (full height) + VESSEL DETAIL -->
@@ -378,19 +390,13 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
     <div class="panel" style="display:flex;flex-direction:column;">
       <div class="ph" style="flex-shrink:0;"><div class="ph-title">Voyage P&L detail</div></div>
       <div class="pb-sm" style="flex:1;overflow-y:auto;">
-        <div id="vsel-list">
-          <div class="drow clickable" id="vr0" onclick="selVessel(0)"><span style="font-size:13px;font-weight:500;">🇳🇴 MS Nordfjord</span><span class="pill pill-g">Underway</span></div>
-          <div class="drow clickable" id="vr1" onclick="selVessel(1)"><span style="font-size:13px;font-weight:500;">🇳🇴 KV Harstad</span><span class="pill pill-g">Underway</span></div>
-          <div class="drow clickable" id="vr2" onclick="selVessel(2)"><span style="font-size:13px;font-weight:500;">🇬🇧 MV Atlantic</span><span class="pill pill-g">Underway</span></div>
-          <div class="drow clickable" id="vr3" onclick="selVessel(3)"><span style="font-size:13px;font-weight:500;">🇸🇬 MV Orient Star</span><span class="pill pill-g">Underway</span></div>
-          <div class="drow clickable" id="vr4" onclick="selVessel(4)"><span style="font-size:13px;font-weight:500;">🇳🇴 SS Bergen</span><span class="pill pill-a">Anchored</span></div>
-        </div>
-        <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:12px;">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;" id="sel-vname">MS Nordfjord</div>
+        <div id="vsel-list"></div>
+        <div id="vdetail-box" style="display:none;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;" id="sel-vname"></div>
           <div id="vdetail"></div>
-          <div class="margin-bar"><div class="margin-fill" id="mfill" style="width:72%;background:var(--green);"></div></div>
+          <div class="margin-bar"><div class="margin-fill" id="mfill" style="width:0%;background:var(--green);"></div></div>
           <div style="display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">
-            <span>COST</span><span id="mpct" style="color:var(--green);">+72%</span><span>REVENUE</span>
+            <span>COST</span><span id="mpct">—</span><span>REVENUE</span>
           </div>
         </div>
       </div>
@@ -399,33 +405,22 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
 
   <div class="grid-3">
     <div class="panel">
-      <div class="ph"><div class="ph-title">Bunker prices — global</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">VLSFO USD/MT</div></div>
+      <div class="ph"><div class="ph-title">Bunker prices — global</div><span class="sample-badge" id="bunker-badge">INDICATIVE</span></div>
       <div class="pb-sm">
         <table class="ftable">
-          <thead><tr><th>Port</th><th>Price</th><th>24h</th></tr></thead>
-          <tbody>
-            <tr><td><div class="port-n">🇳🇱 Rotterdam</div></td><td><div class="price-n">$602</div></td><td><span class="chg-dn">-1.1%</span></td></tr>
-            <tr><td><div class="port-n">🇸🇬 Singapore</div></td><td><div class="price-n">$625</div></td><td><span class="chg-up">+0.8%</span></td></tr>
-            <tr><td><div class="port-n">🇦🇪 Fujairah</div></td><td><div class="price-n">$614</div></td><td><span class="chg-dn">-0.4%</span></td></tr>
-            <tr><td><div class="port-n">🇳🇴 Bergen</div></td><td><div class="price-n">$618</div></td><td><span class="chg-dn">-0.8%</span></td></tr>
-            <tr><td><div class="port-n">🇺🇸 Houston</div></td><td><div class="price-n">$608</div></td><td><span class="chg-up">+0.3%</span></td></tr>
-            <tr><td><div class="port-n">🇯🇵 Tokyo</div></td><td><div class="price-n">$631</div></td><td><span class="chg-up">+1.2%</span></td></tr>
-          </tbody>
+          <thead><tr><th>Port</th><th>VLSFO USD/MT</th></tr></thead>
+          <tbody id="bunker-body"></tbody>
         </table>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px;line-height:1.5;" id="bunker-note">Indicative table. Connect your OilPriceAPI key in Settings for live VLSFO.</div>
       </div>
     </div>
     <div class="panel">
-      <div class="ph"><div class="ph-title">Fleet P&L — 7 days</div></div>
-      <div class="pb-sm"><div class="chart-wrap"><canvas id="pnlChart"></canvas></div></div>
+      <div class="ph"><div class="ph-title">Voyage P&amp;L</div></div>
+      <div class="pb-sm"><div class="chart-wrap"><canvas id="pnlChart"></canvas><div class="chart-empty" id="chart-empty">Create voyages to plot P&amp;L</div></div></div>
     </div>
     <div class="panel">
-      <div class="ph"><div class="ph-title">Invoices</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">AI extracted</div></div>
-      <div class="pb-sm">
-        <div class="irow"><div class="iico iico-f">⛽</div><div style="flex:1;"><div class="iname">Bunker — Rotterdam</div><div class="imeta">MV Atlantic · Apr 03</div></div><div><div class="iamt">-$26,400</div><span class="pill pill-g" style="font-size:9px;">Paid</span></div></div>
-        <div class="irow"><div class="iico iico-p">⚓</div><div style="flex:1;"><div class="iname">Port dues — Istanbul</div><div class="imeta">KV Harstad · Apr 03</div></div><div><div class="iamt">-$3,800</div><span class="pill pill-a" style="font-size:9px;">Pending</span></div></div>
-        <div class="irow"><div class="iico iico-a">📋</div><div style="flex:1;"><div class="iname">Agent fee — Dubai</div><div class="imeta">MV Orient · Apr 02</div></div><div><div class="iamt">-$1,650</div><span class="pill pill-a" style="font-size:9px;">Pending</span></div></div>
-        <div class="irow"><div class="iico iico-f">⛽</div><div style="flex:1;"><div class="iname">Bunker — Fujairah</div><div class="imeta">MV Orient · Apr 01</div></div><div><div class="iamt">-$14,200</div><span class="pill pill-g" style="font-size:9px;">Paid</span></div></div>
-      </div>
+      <div class="ph"><div class="ph-title">Invoices</div><button class="btn btn-s" style="font-size:11px;padding:4px 10px;" onclick="openInvoiceModal()">+ Log invoice</button></div>
+      <div class="pb-sm" id="invoice-list"></div>
     </div>
   </div>
 
@@ -460,13 +455,14 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <div class="ph"><div class="ph-title">New voyage</div></div>
       <div class="pb">
         <div class="fgrid">
-          <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="f-vessel"><option value="">— Select vessel —</option></select></div>
-          <div class="fg"><label class="flabel">Cargo type</label><select class="fselect"><option>General cargo</option><option>Refrigerated</option><option>Offshore supply</option><option>Bulk</option><option>Container</option><option>Tanker</option></select></div>
+          <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="f-vessel" onchange="onVoyageVesselChange()"><option value="">— Select vessel —</option></select></div>
+          <div class="fg"><label class="flabel">Cargo type</label><select class="fselect" id="f-cargo"><option>General cargo</option><option>Refrigerated</option><option>Offshore supply</option><option>Bulk</option><option>Container</option><option>Tanker</option></select></div>
           <div class="fg"><label class="flabel">Departure port</label><select class="fselect" id="f-from" onchange="calcEst()"><option>Bergen</option><option>Rotterdam</option><option>Singapore</option><option>Dubai</option><option>Istanbul</option><option>Houston</option><option>Tokyo</option><option>New York</option></select></div>
           <div class="fg"><label class="flabel">Destination</label><select class="fselect" id="f-to" onchange="calcEst()"><option>Rotterdam</option><option>Singapore</option><option>Dubai</option><option>Bergen</option><option>Istanbul</option><option>Houston</option><option>Tokyo</option><option>New York</option></select></div>
           <div class="fg"><label class="flabel">Cargo (MT)</label><input class="finput" type="number" id="f-wt" value="4200" oninput="calcEst()"/></div>
           <div class="fg"><label class="flabel">Freight rate (USD/MT)</label><input class="finput" type="number" id="f-rate" value="42" oninput="calcEst()"/></div>
           <div class="fg"><label class="flabel">Speed (kn)</label><input class="finput" type="number" id="f-spd" value="14" oninput="calcEst()"/></div>
+          <div class="fg"><label class="flabel">Fuel burn (MT/day)</label><input class="finput" type="number" id="f-fuel" value="28" oninput="calcEst()"/></div>
           <div class="fg"><label class="flabel">Departure date</label><input class="finput" type="date" id="f-date"/></div>
         </div>
         <div style="display:flex;gap:8px;"><button class="btn btn-s" onclick="calcEst()">Recalculate</button><button class="btn btn-p" onclick="createVoyage()">Create voyage →</button></div>
@@ -474,7 +470,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
     </div>
     <div>
       <div class="panel" style="margin-bottom:12px;">
-        <div class="ph"><div class="ph-title">Voyage estimate</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">AI calculated</div></div>
+        <div class="ph"><div class="ph-title">Voyage estimate</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">Uses this vessel’s speed &amp; burn</div></div>
         <div class="pb-sm" id="est-body"><div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Adjust settings to see estimate</div></div>
       </div>
       <div class="panel">
@@ -498,42 +494,44 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
   <div class="grid-eq">
     <div>
       <div class="panel" style="margin-bottom:12px;">
-        <div class="ph"><div class="ph-title">Configured alerts</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);" id="alrt-count">5 ACTIVE</div></div>
-        <div id="alert-list">
-          <div class="arow"><div class="adot adot-r"></div><div style="flex:1;"><div class="aname">Bunker spike — Stavanger</div><div class="adesc">VLSFO &gt; $630 · triggered 14:22 UTC</div></div><span class="pill pill-r" style="font-size:10px;">Triggered</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button></div>
-          <div class="arow"><div class="adot adot-r"></div><div style="flex:1;"><div class="aname">Margin below threshold</div><div class="adesc">SS Bergen &lt; 55% · triggered 11:05</div></div><span class="pill pill-r" style="font-size:10px;">Triggered</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button></div>
-          <div class="arow"><div class="adot adot-g"></div><div style="flex:1;"><div class="aname">Rotterdam price drop</div><div class="adesc">VLSFO &lt; $610 · watching</div></div><span class="pill pill-g" style="font-size:10px;">Watching</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button></div>
-          <div class="arow"><div class="adot adot-g"></div><div style="flex:1;"><div class="aname">MS Nordfjord arrival</div><div class="adesc">Rotterdam ETA -2h · watching</div></div><span class="pill pill-g" style="font-size:10px;">Watching</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button></div>
-          <div class="arow"><div class="adot adot-m"></div><div style="flex:1;"><div class="aname">Invoice overdue reminder</div><div class="adesc">Pending &gt; 14 days</div></div><span class="pill" style="font-size:10px;background:var(--faint);color:var(--muted);">Paused</span><button class="toggle off" onclick="tog(this)"><div class="tthumb"></div></button></div>
-        </div>
+        <div class="ph"><div class="ph-title">Configured alerts</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);" id="alrt-count">0 ACTIVE</div></div>
+        <div id="alert-list"></div>
       </div>
       <div class="panel">
         <div class="ph"><div class="ph-title">New alert</div></div>
         <div class="pb">
           <div class="atype-grid">
-            <div class="atype sel" onclick="selType(this)"><div class="atype-ico">⛽</div><div class="atype-l">Fuel price</div></div>
-            <div class="atype" onclick="selType(this)"><div class="atype-ico">📊</div><div class="atype-l">Margin</div></div>
-            <div class="atype" onclick="selType(this)"><div class="atype-ico">⚓</div><div class="atype-l">Arrival</div></div>
-            <div class="atype" onclick="selType(this)"><div class="atype-ico">📋</div><div class="atype-l">Invoice</div></div>
-            <div class="atype" onclick="selType(this)"><div class="atype-ico">🌊</div><div class="atype-l">Weather</div></div>
-            <div class="atype" onclick="selType(this)"><div class="atype-ico">⚡</div><div class="atype-l">Custom</div></div>
+            <div class="atype sel" data-type="fuel" onclick="selType(this)"><div class="atype-ico">⛽</div><div class="atype-l">Fuel price</div></div>
+            <div class="atype" data-type="margin" onclick="selType(this)"><div class="atype-ico">📊</div><div class="atype-l">Margin</div></div>
+            <div class="atype" data-type="arrival" onclick="selType(this)"><div class="atype-ico">⚓</div><div class="atype-l">Arrival</div></div>
+            <div class="atype" data-type="invoice" onclick="selType(this)"><div class="atype-ico">📋</div><div class="atype-l">Invoice</div></div>
+            <div class="atype" data-type="custom" onclick="selType(this)"><div class="atype-ico">⚡</div><div class="atype-l">Custom</div></div>
           </div>
           <div class="fg"><label class="flabel">Alert name</label><input class="finput" type="text" id="an" placeholder="e.g. VLSFO drop at Rotterdam"/></div>
-          <div class="fg"><label class="flabel">Condition</label><input class="finput" type="text" id="ac" placeholder="e.g. price &lt; $600"/></div>
-          <div class="fg"><label class="flabel">Notify via</label><select class="fselect"><option>Dashboard only</option><option>Email</option><option>SMS</option><option>Email + SMS</option><option>WhatsApp</option></select></div>
+          <div class="alert-extra on" id="af-fuel">
+            <div class="fgrid">
+              <div class="fg"><label class="flabel">Port</label><select class="fselect" id="a-port"><option>Rotterdam</option><option>Singapore</option><option>Bergen</option><option>Fujairah</option><option>Houston</option><option>Tokyo</option><option>Dubai</option><option>Istanbul</option></select></div>
+              <div class="fg"><label class="flabel">When price is</label><select class="fselect" id="a-op"><option value="above">Above</option><option value="below">Below</option></select></div>
+            </div>
+            <div class="fg"><label class="flabel">Threshold (USD/MT)</label><input class="finput" type="number" id="a-fuel-th" value="630"/></div>
+          </div>
+          <div class="alert-extra" id="af-margin">
+            <div class="fg"><label class="flabel">Trigger when voyage margin is below (%)</label><input class="finput" type="number" id="a-margin-th" value="35"/></div>
+          </div>
+          <div class="alert-extra" id="af-arrival">
+            <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="a-vessel"><option value="">— Select vessel —</option></select></div>
+          </div>
+          <div class="alert-extra" id="af-text">
+            <div class="fg"><label class="flabel">Condition</label><input class="finput" type="text" id="ac" placeholder="e.g. pending invoice older than 14 days"/></div>
+          </div>
+          <div class="fg"><label class="flabel">Notify via</label><select class="fselect" id="a-notify"><option>Dashboard only</option><option>Email</option><option>SMS</option></select></div>
           <button class="btn btn-p" onclick="addAlert()" style="width:100%;">Add alert →</button>
         </div>
       </div>
     </div>
     <div class="panel">
-      <div class="ph"><div class="ph-title">Notification log</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">Last 24h</div></div>
-      <div>
-        <div class="nrow"><div class="ndot2" style="background:var(--red);"></div><div><div class="ntext"><strong style="color:var(--red);">TRIGGERED</strong> — Stavanger VLSFO hit $641, exceeds $630 threshold. Consider Rotterdam ($602) for next bunkering.</div><div class="ntime">14:22 UTC · Bunker spike</div></div></div>
-        <div class="nrow"><div class="ndot2" style="background:var(--amber);"></div><div><div class="ntext"><strong style="color:var(--amber);">WARNING</strong> — SS Bergen voyage margin 51.4%, below 55% threshold. Fuel costs above estimate.</div><div class="ntime">11:05 UTC · Margin alert</div></div></div>
-        <div class="nrow"><div class="ndot2" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">INFO</strong> — MS Nordfjord departed Bergen 08:14. ETA Rotterdam 22:40 UTC.</div><div class="ntime">08:14 UTC · Departure</div></div></div>
-        <div class="nrow"><div class="ndot2" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">INFO</strong> — Rotterdam VLSFO dropped to $602. Down 1.1% — within target range.</div><div class="ntime">07:30 UTC · Price update</div></div></div>
-        <div class="nrow"><div class="ndot2" style="background:var(--cyan);"></div><div><div class="ntext"><strong style="color:var(--cyan);">AUTO</strong> — MV Atlantic bunker invoice $26,400 extracted from email and logged.</div><div class="ntime">Yesterday 18:44 UTC · AI extracted</div></div></div>
-      </div>
+      <div class="ph"><div class="ph-title">Notification log</div><div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">Local</div></div>
+      <div id="notif-log"></div>
     </div>
   </div>
 </div>
@@ -566,8 +564,61 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
           <button class="btn btn-s" onclick="clearAISKey()">Remove key</button>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
-          Your key is stored in your browser only and never uploaded anywhere.<br/>
+          Your key stays in this browser. The map talks to aisstream.io directly.<br/>
           Get a free key at <a href="https://aisstream.io" target="_blank" style="color:var(--cyan);">aisstream.io</a> — no credit card required.
+        </div>
+      </div>
+    </div>
+
+    <!-- BUNKER PRICES (PER USER) -->
+    <div class="settings-section">
+      <div class="settings-header">BUNKER PRICES — OPTIONAL</div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div><div class="settings-label">Your OilPriceAPI key</div><div class="settings-sub">Live VLSFO by port. Skip this if indicative prices are enough.</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="key-status-dot" id="oil-dot" style="background:var(--muted);"></div>
+            <span class="key-display" id="oil-display">Not set</span>
+          </div>
+        </div>
+        <div class="fg" style="margin-top:14px;">
+          <label class="flabel">Enter or update API key</label>
+          <input class="finput" type="password" id="settings-oil-key" placeholder="Paste your OilPriceAPI key..."/>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-p" onclick="saveOilKey()">Save &amp; fetch prices →</button>
+          <button class="btn btn-s" onclick="clearOilKey()">Remove key</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
+          This is <strong>your</strong> key and your API quota — not a shared NavProfit key.
+          Get one at <a href="https://docs.oilpriceapi.com" target="_blank" style="color:var(--cyan);">oilpriceapi.com</a>.
+          If you sign in, it is saved to your account on this server only.
+        </div>
+      </div>
+    </div>
+
+    <!-- INVOICE AI (PER USER) -->
+    <div class="settings-section">
+      <div class="settings-header">INVOICE AI — OPTIONAL</div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div><div class="settings-label">Your Anthropic API key</div><div class="settings-sub">Extract vendor, amount, port and vessel from a PDF or pasted invoice.</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="key-status-dot" id="ai-dot" style="background:var(--muted);"></div>
+            <span class="key-display" id="ai-display">Not set</span>
+          </div>
+        </div>
+        <div class="fg" style="margin-top:14px;">
+          <label class="flabel">Enter or update API key</label>
+          <input class="finput" type="password" id="settings-ai-key" placeholder="Paste your Anthropic API key..."/>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-p" onclick="saveAiKey()">Save key →</button>
+          <button class="btn btn-s" onclick="clearAiKey()">Remove key</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
+          Optional. You pay Anthropic for what you extract — NavProfit does not share a company key.
+          Get a key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--cyan);">console.anthropic.com</a>.
         </div>
       </div>
     </div>
@@ -628,23 +679,56 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <div class="settings-body">
         <div class="settings-row">
           <div><div class="settings-label">Bunker price alerts</div><div class="settings-sub">Notify when prices cross thresholds</div></div>
-          <button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button>
+          <button class="toggle on" id="n-bunker" onclick="togPref(this,'bunker')"><div class="tthumb"></div></button>
         </div>
         <div class="settings-row">
           <div><div class="settings-label">Voyage margin alerts</div><div class="settings-sub">Alert when margin drops below target</div></div>
-          <button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button>
+          <button class="toggle on" id="n-margin" onclick="togPref(this,'margin')"><div class="tthumb"></div></button>
         </div>
         <div class="settings-row">
           <div><div class="settings-label">Vessel arrival alerts</div><div class="settings-sub">Notify on port arrival / departure</div></div>
-          <button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button>
+          <button class="toggle on" id="n-arrival" onclick="togPref(this,'arrival')"><div class="tthumb"></div></button>
         </div>
         <div class="settings-row">
           <div><div class="settings-label">Invoice reminders</div><div class="settings-sub">Remind on overdue pending invoices</div></div>
-          <button class="toggle off" onclick="tog(this)"><div class="tthumb"></div></button>
+          <button class="toggle off" id="n-invoice" onclick="togPref(this,'invoice')"><div class="tthumb"></div></button>
         </div>
         <div class="settings-row">
-          <div><div class="settings-label">Stale vessel cleanup</div><div class="settings-sub">Remove vessels inactive for 15 min</div></div>
-          <button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button>
+          <div><div class="settings-label">Stale vessel cleanup</div><div class="settings-sub">Remove AIS targets inactive for 15 min</div></div>
+          <button class="toggle on" id="n-stale" onclick="togPref(this,'stale')"><div class="tthumb"></div></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATA -->
+    <div class="settings-section">
+      <div class="settings-header">DATA</div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div><div class="settings-label">Sample data</div><div class="settings-sub">Load a demo fleet, voyages, invoices and alerts. Your own records are kept.</div></div>
+          <button class="toggle off" id="n-sample" onclick="toggleSample(this)"><div class="tthumb"></div></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SERVER / LIVE APIS -->
+    <div class="settings-section">
+      <div class="settings-header">LIVE DATA (SERVER)</div>
+      <div class="settings-body">
+        <div class="settings-row">
+          <div><div class="settings-label">Bunker prices</div><div class="settings-sub">Your OilPriceAPI key — not a shared company feed</div></div>
+          <span class="key-display" id="srv-bunker">Checking…</span>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Invoice AI</div><div class="settings-sub">Your Anthropic key — skip if you log invoices by hand</div></div>
+          <span class="key-display" id="srv-invoice">Checking…</span>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">Account sync</div><div class="settings-sub">Fleet and voyages saved to this server when signed in</div></div>
+          <span class="key-display" id="srv-account">Local only</span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.6;">
+          Each operator connects their own keys in the panels above. A key in <code>.env</code> is only an optional fallback for the person who installed this server.
         </div>
       </div>
     </div>
@@ -655,14 +739,14 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <div class="settings-body">
         <div class="settings-row">
           <div><div class="settings-label">Version</div></div>
-          <div class="key-display">0.2.0 — MVP</div>
+          <div class="key-display">0.4.0 — live APIs</div>
         </div>
         <div class="settings-row">
           <div><div class="settings-label">Data sources</div></div>
-          <div style="font-size:12px;color:var(--muted);text-align:right;">aisstream.io · CartoDB · Chart.js</div>
+          <div style="font-size:12px;color:var(--muted);text-align:right;">aisstream.io · OilPriceAPI · Claude · CartoDB</div>
         </div>
         <div class="settings-row">
-          <div><div class="settings-label">Storage</div><div class="settings-sub">All data stored locally in your browser</div></div>
+          <div><div class="settings-label">Storage</div><div class="settings-sub" id="storage-sub">Browser localStorage. Sign in to sync to this server.</div></div>
           <button class="btn-danger" onclick="clearAllData()">Clear all local data</button>
         </div>
       </div>
@@ -697,791 +781,56 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
   </div>
 </div>
 
-<script>
-'use strict';
-
-// ════════════════════════════════════════════════════
-// CONSTANTS & STATE
-// ════════════════════════════════════════════════════
-var KEY_AIS='navprofit_ais_key';
-var KEY_FLEET='navprofit_fleet';
-var KEY_SETTINGS='navprofit_settings';
-var MAX_VESSELS=1500;
-
-var isDark=true;
-var cur='NOK';
-var pnl=84320;
-var selV=0;
-var aisSocket=null, aisConnected=false, aisKey='', aisMsgCount=0;
-var dashMap=null, darkTile=null, lightTile=null;
-var dashVessels={}, dashMarkers={};
-var bboxTimer=null, staleTimer=null;
-var pnlChart=null;
-var vlog=[];
-
-var FX={NOK:{r:10.8,s:'kr'},USD:{r:1,s:'$'},EUR:{r:0.92,s:'€'},GBP:{r:0.79,s:'£'},SGD:{r:1.35,s:'S$'}};
-
-var VESSEL_DATA=[
-  {name:'MS Nordfjord',flag:'🇳🇴',from:'Bergen',to:'Rotterdam',rev:820000,costs:228000,fuel:145000,port:42000,agent:22000,prog:72,eta:'08:40 UTC',dist:'612 nm',spd:'14.2 kn',cargo:'General cargo · 1,840t'},
-  {name:'KV Harstad',flag:'🇳🇴',from:'Rotterdam',to:'Istanbul',rev:540000,costs:198000,fuel:122000,port:38000,agent:18000,prog:38,eta:'22:15 UTC',dist:'2,180 nm',spd:'11.8 kn',cargo:'Offshore supply · 920t'},
-  {name:'MV Atlantic',flag:'🇬🇧',from:'Istanbul',to:'Dubai',rev:1240000,costs:580000,fuel:380000,port:88000,agent:42000,prog:55,eta:'3d 14h',dist:'3,900 nm',spd:'12.4 kn',cargo:'Bulk · 18,200t'},
-  {name:'MV Orient Star',flag:'🇸🇬',from:'Dubai',to:'Singapore',rev:1820000,costs:720000,fuel:490000,port:98000,agent:52000,prog:22,eta:'6d 08h',dist:'3,640 nm',spd:'16.0 kn',cargo:'Container · 6,400 TEU'},
-  {name:'SS Bergen',flag:'🇳🇴',from:'Rotterdam',to:'—',rev:0,costs:45360,fuel:29400,port:12000,agent:3960,prog:0,eta:'Anchored',dist:'—',spd:'0.0 kn',cargo:'Tanker — idle'}
-];
-
-var DIST={Bergen:{Rotterdam:612,Singapore:10940,Dubai:6240,Istanbul:2840,Houston:8200,Tokyo:11800,'New York':6100},Rotterdam:{Bergen:612,Singapore:10640,Dubai:6640,Istanbul:2180,Houston:7600,Tokyo:11200,'New York':5550},Singapore:{Bergen:10940,Rotterdam:10640,Dubai:3640,Istanbul:8200,Houston:13200,Tokyo:3300,'New York':15600},Dubai:{Bergen:6240,Rotterdam:6640,Singapore:3640,Istanbul:3620,Houston:9800,Tokyo:5900,'New York':11200},Istanbul:{Bergen:2840,Rotterdam:2180,Singapore:8200,Dubai:3620,Houston:9200,Tokyo:9800,'New York':8100},Houston:{Bergen:8200,Rotterdam:7600,Singapore:13200,Dubai:9800,Istanbul:9200,Tokyo:9800,'New York':1600},Tokyo:{Bergen:11800,Rotterdam:11200,Singapore:3300,Dubai:5900,Istanbul:9800,Houston:9800,'New York':10300},'New York':{Bergen:6100,Rotterdam:5550,Singapore:15600,Dubai:11200,Istanbul:8100,Houston:1600,Tokyo:10300}};
-var BUNK={Bergen:618,Rotterdam:602,Singapore:625,Dubai:614,Istanbul:619,Houston:608,Tokyo:631,'New York':622,Fujairah:614};
-
-var REGIONS={
-  norway:[[56,3],[72,32]],
-  north_sea:[[50,-5],[62,13]],
-  baltic:[[53,9],[65,31]],
-  mediterranean:[[30,-6],[46,37]],
-  global:[[-90,-180],[90,180]]
-};
-var currentRegion='norway';
-
-// ════════════════════════════════════════════════════
-// LOCAL STORAGE HELPERS
-// ════════════════════════════════════════════════════
-function lsGet(key,def){try{var v=localStorage.getItem(key);return v!=null?JSON.parse(v):def;}catch(e){return def;}}
-function lsSet(key,val){try{localStorage.setItem(key,JSON.stringify(val));}catch(e){}}
-function lsDel(key){try{localStorage.removeItem(key);}catch(e){}}
-
-// ════════════════════════════════════════════════════
-// NAVIGATION
-// ════════════════════════════════════════════════════
-function gotoPage(id,btn){
-  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-  document.querySelectorAll('.tnav').forEach(function(b){b.classList.remove('active');});
-  document.getElementById('page-'+id).classList.add('active');
-  btn.classList.add('active');
-  if(id==='voyage'){renderVoyageVessels();setTimeout(calcEst,100);}
-  if(id==='fleet') renderFleet();
-  if(id==='settings') renderSettings();
-  if(id==='dashboard' && dashMap) setTimeout(function(){dashMap.invalidateSize();},150);
-}
-
-// ════════════════════════════════════════════════════
-// THEME
-// ════════════════════════════════════════════════════
-function setTheme(theme){
-  isDark=(theme==='dark');
-  document.documentElement.setAttribute('data-theme',theme);
-  document.getElementById('themebtn').textContent=isDark?'☀':'🌙';
-  // Update settings buttons
-  var db=document.getElementById('theme-dark-btn');
-  var lb=document.getElementById('theme-light-btn');
-  if(db){db.style.borderColor=isDark?'var(--cyan)':'var(--border)';db.style.color=isDark?'var(--cyan)':'var(--muted)';}
-  if(lb){lb.style.borderColor=!isDark?'var(--cyan)':'var(--border)';lb.style.color=!isDark?'var(--cyan)':'var(--muted)';}
-  // Switch map tiles
-  if(dashMap){
-    if(isDark){if(lightTile)lightTile.remove();if(darkTile)darkTile.addTo(dashMap);}
-    else{if(darkTile)darkTile.remove();if(lightTile)lightTile.addTo(dashMap);}
-  }
-  // Rebuild chart after CSS vars settle
-  setTimeout(buildChart,100);
-}
-
-function toggleTheme(){setTheme(isDark?'light':'dark');}
-
-// ════════════════════════════════════════════════════
-// CURRENCY
-// ════════════════════════════════════════════════════
-function setCurrency(c){
-  cur=c;
-  var f=FX[c];
-  document.getElementById('kpi-pnl').textContent=(pnl>=0?'+':'')+f.s+Math.round(pnl*f.r/10.8).toLocaleString();
-  document.getElementById('kpi-curr').textContent=c+' · 4 voyages';
-  if(document.getElementById('ins-saving')) document.getElementById('ins-saving').textContent=f.s+Math.round(44200*f.r/10.8).toLocaleString();
-  selVessel(selV);
-}
-
-// ════════════════════════════════════════════════════
-// MAP INIT
-// ════════════════════════════════════════════════════
-function initMap(){
-  dashMap=L.map('dashboard-map',{
-    center:[62,10],
-    zoom:4,
-    preferCanvas:true,
-    zoomControl:true,
-    scrollWheelZoom:true,   // enable scroll to zoom
-    doubleClickZoom:true,
-    dragging:true,
-    touchZoom:true,
-    boxZoom:true,
-  });
-  darkTile=L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-    attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a> © <a href="https://carto.com">CARTO</a>',
-    subdomains:'abcd',maxZoom:19
-  });
-  lightTile=L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-    attribution:'© <a href="https://openstreetmap.org">OpenStreetMap</a> © <a href="https://carto.com">CARTO</a>',
-    subdomains:'abcd',maxZoom:19
-  });
-  darkTile.addTo(dashMap);
-
-  // Resubscribe on map move
-  dashMap.on('moveend zoomend',function(){
-    clearTimeout(bboxTimer);
-    bboxTimer=setTimeout(resubscribeAIS,1500);
-  });
-
-  // Invalidate size whenever window resizes so map fills container
-  window.addEventListener('resize',function(){
-    if(dashMap) dashMap.invalidateSize();
-  });
-
-  // Also invalidate after a short delay on init
-  setTimeout(function(){if(dashMap) dashMap.invalidateSize();},200);
-}
-
-// ════════════════════════════════════════════════════
-// AIS CONNECTION
-// ════════════════════════════════════════════════════
-function promptAISConnect(){
-  var saved=lsGet(KEY_AIS,'');
-  if(saved){connectAIS(saved);}
-  else{gotoPage('settings',document.querySelectorAll('.tnav')[4]);}
-}
-
-function connectAIS(key){
-  if(!key) return;
-  aisKey=key;
-  lsSet(KEY_AIS,key);
-  if(aisSocket){aisSocket.onclose=null;aisSocket.close();aisSocket=null;}
-  setAISStatus('connecting');
-
-  aisSocket=new WebSocket('wss://stream.aisstream.io/v0/stream');
-
-  aisSocket.onopen=function(){
-    var bbox=getBBox();
-    aisSocket.send(JSON.stringify({
-      APIKey:key,
-      BoundingBoxes:[bbox],
-      FilterMessageTypes:['PositionReport','ShipStaticData']
-    }));
-    aisConnected=true;
-    setAISStatus('connected');
-    document.getElementById('map-overlay').style.display='none';
-    document.getElementById('ais-bar-btn').textContent='Disconnect';
-    document.getElementById('ais-bar-btn').onclick=disconnectAIS;
-  };
-
-  aisSocket.onmessage=function(e){
-    aisMsgCount++;
-    var d=e.data;
-    if(d instanceof Blob){
-      var r=new FileReader();
-      r.onload=function(){try{handleAISMsg(JSON.parse(r.result));}catch(ex){}};
-      r.readAsText(d);
-    }else{try{handleAISMsg(JSON.parse(d));}catch(ex){}}
-  };
-
-  aisSocket.onerror=function(){setAISStatus('error');};
-  aisSocket.onclose=function(e){
-    if(aisConnected){
-      aisConnected=false;
-      setAISStatus('offline');
-      document.getElementById('ais-bar-btn').textContent='Reconnect';
-      document.getElementById('ais-bar-btn').onclick=function(){connectAIS(aisKey);};
-    }
-  };
-}
-
-function disconnectAIS(){
-  aisConnected=false;
-  if(aisSocket){aisSocket.onclose=null;aisSocket.close();aisSocket=null;}
-  setAISStatus('offline');
-  document.getElementById('ais-bar-btn').textContent='Connect';
-  document.getElementById('ais-bar-btn').onclick=promptAISConnect;
-}
-
-function getBBox(){
-  if(dashMap){
-    var b=dashMap.getBounds();
-    return [[b.getSouthWest().lat,b.getSouthWest().lng],[b.getNorthEast().lat,b.getNorthEast().lng]];
-  }
-  return REGIONS[currentRegion];
-}
-
-function resubscribeAIS(){
-  if(!aisConnected||!aisSocket||aisSocket.readyState!==WebSocket.OPEN) return;
-  var bbox=getBBox();
-  aisSocket.send(JSON.stringify({
-    APIKey:aisKey,
-    BoundingBoxes:[bbox],
-    FilterMessageTypes:['PositionReport','ShipStaticData']
-  }));
-  updateAISBarArea();
-}
-
-function updateAISBarArea(){
-  if(!dashMap) return;
-  var c=dashMap.getCenter();
-  document.getElementById('ais-bar-area').textContent=
-    c.lat.toFixed(1)+'°N '+c.lng.toFixed(1)+'°E  zoom '+dashMap.getZoom();
-}
-
-function setAISStatus(state){
-  var pill=document.getElementById('ais-pill');
-  var dot=document.getElementById('ais-dot');
-  var txt=document.getElementById('ais-status-txt');
-  var bDot=document.getElementById('ais-bar-dot');
-  var bTxt=document.getElementById('ais-bar-status');
-  var vSub=document.getElementById('kpi-vsub');
-
-  if(state==='connected'){
-    pill.classList.add('on');
-    dot.classList.add('blink');
-    txt.textContent='AIS live';
-    bDot.classList.add('live');
-    bTxt.textContent='Connected — streaming';
-    if(vSub) vSub.textContent='live via AIS';
-    updateAISBarArea();
-  } else if(state==='connecting'){
-    pill.classList.remove('on');
-    dot.classList.remove('blink');
-    txt.textContent='Connecting...';
-    bDot.classList.remove('live');
-    bTxt.textContent='Connecting...';
-  } else if(state==='error'){
-    pill.classList.remove('on');
-    dot.classList.remove('blink');
-    txt.textContent='AIS error';
-    bDot.classList.remove('live');
-    bTxt.textContent='Connection error';
-  } else {
-    pill.classList.remove('on');
-    dot.classList.remove('blink');
-    txt.textContent='AIS offline';
-    bDot.classList.remove('live');
-    bTxt.textContent='Not connected';
-    if(vSub) vSub.textContent='AIS offline';
-    document.getElementById('ais-bar-area').textContent='';
-    document.getElementById('ais-bar-count').textContent='';
-  }
-}
-
-// ════════════════════════════════════════════════════
-// AIS MESSAGE HANDLING
-// ════════════════════════════════════════════════════
-function shipTypeName(code){
-  var t={30:'Fishing',31:'Towing',36:'Sailing',37:'Pleasure craft',50:'Pilot',51:'SAR',52:'Tug',
-    60:'Passenger',69:'Passenger',70:'Cargo',79:'Cargo',80:'Tanker',89:'Tanker',90:'Other'};
-  return t[code]||t[Math.floor((code||0)/10)*10]||'Unknown';
-}
-
-function vColor(v){
-  var t=v.shipType||0;
-  if(t>=60&&t<70) return isDark?'#a78bfa':'#7c3aed';
-  if(t>=70&&t<80) return isDark?'#38b2d8':'#0369a1';
-  if(t>=80&&t<90) return isDark?'#f5a623':'#b45309';
-  if(t===30) return isDark?'#2dd4a0':'#047857';
-  if(t===52||t===31||t===32) return '#c2410c';
-  if((v.speedKnots||0)>1) return isDark?'#2dd4a0':'#047857';
-  return '#64748b';
-}
-
-function makeVIcon(v,sel){
-  var c=vColor(v),h=v.headingDeg||0,sz=sel?14:9;
-  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+(sz*3)+'" height="'+(sz*3)+'" viewBox="-15 -15 30 30">'
-    +'<g transform="rotate('+h+')">'
-    +'<polygon points="0,-10 6,7 0,4 -6,7" fill="white" stroke="white" stroke-width="3" stroke-linejoin="round"/>'
-    +'<polygon points="0,-10 6,7 0,4 -6,7" fill="'+c+'" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>'
-    +'</g>'+(sel?'<circle r="13" fill="none" stroke="'+c+'" stroke-width="2" opacity="0.6"/>':'')+'</svg>';
-  return L.divIcon({html:svg,className:'',iconSize:[sz*3,sz*3],iconAnchor:[sz*1.5,sz*1.5]});
-}
-
-function makePopup(v){
-  return '<div class="pname">'+(v.name||'MMSI '+v.mmsi)+'</div>'
-    +'<div class="prow"><span class="plbl">Speed</span><span class="pval">'+(v.speedKnots||0).toFixed(1)+' kn</span></div>'
-    +'<div class="prow"><span class="plbl">MMSI</span><span class="pval">'+v.mmsi+'</span></div>'
-    +'<div class="prow"><span class="plbl">Destination</span><span class="pval">'+(v.destination||'—')+'</span></div>'
-    +'<div class="prow"><span class="plbl">Status</span><span class="pval">'+navName(v.navStatus)+'</span></div>'
-    +'<div style="margin-top:10px;display:flex;gap:6px;">'
-    +'<button onclick="addVesselFromAIS(\''+v.mmsi+'\')" style="flex:1;background:var(--cyan);border:none;border-radius:6px;color:#fff;padding:7px;font-size:12px;font-weight:500;cursor:pointer;font-family:\'DM Sans\',sans-serif;">+ Add to fleet</button>'
-    +'<button onclick="navigator.clipboard&&navigator.clipboard.writeText(\''+v.mmsi+'\')" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);padding:7px 10px;font-size:12px;cursor:pointer;">Copy MMSI</button>'
-    +'</div>';
-}
-
-function navName(code){
-  return {0:'Underway',1:'At anchor',2:'Not under command',3:'Restricted',5:'Moored',6:'Aground'}[code]||'Unknown';
-}
-
-function handleAISMsg(msg){
-  var meta=msg.MetaData||{};
-  var mmsi=String(meta.MMSI||'');
-  if(!mmsi) return;
-  if(!dashVessels[mmsi]&&Object.keys(dashVessels).length>=MAX_VESSELS) return;
-
-  if(msg.MessageType==='PositionReport'){
-    var pos=msg.Message.PositionReport;
-    if(!pos||pos.Latitude===0&&pos.Longitude===0) return;
-    if(Math.abs(pos.Latitude||0)>90||Math.abs(pos.Longitude||0)>180) return;
-    if(!dashVessels[mmsi]) dashVessels[mmsi]={mmsi:mmsi};
-    dashVessels[mmsi]=Object.assign({},dashVessels[mmsi],{
-      mmsi:mmsi,
-      name:(meta.ShipName&&meta.ShipName.trim())||dashVessels[mmsi].name||('MMSI '+mmsi),
-      lat:pos.Latitude,lon:pos.Longitude,
-      speedKnots:pos.Sog||0,
-      headingDeg:(pos.TrueHeading>0&&pos.TrueHeading<360)?pos.TrueHeading:(pos.Cog||0),
-      navStatus:pos.NavigationalStatus,
-      updated:new Date()
-    });
-    updateDashMarker(mmsi);
-    var cnt=Object.keys(dashVessels).length;
-    document.getElementById('kpi-vessels').textContent=cnt;
-    document.getElementById('map-count').textContent=cnt+' vessels';
-    document.getElementById('ais-bar-count').textContent=cnt+' vessels';
-  }
-
-  if(msg.MessageType==='ShipStaticData'){
-    var s=msg.Message.ShipStaticData;
-    if(!dashVessels[mmsi]) dashVessels[mmsi]={mmsi:mmsi};
-    dashVessels[mmsi]=Object.assign({},dashVessels[mmsi],{
-      name:(s.Name&&s.Name.trim())||dashVessels[mmsi].name||('MMSI '+mmsi),
-      callSign:s.CallSign&&s.CallSign.trim(),
-      destination:s.Destination&&s.Destination.trim(),
-      imo:s.ImoNumber,shipType:s.Type
-    });
-    if(dashMarkers[mmsi]) updateDashMarker(mmsi);
-  }
-}
-
-function updateDashMarker(mmsi){
-  var v=dashVessels[mmsi];
-  if(!v||!v.lat||!dashMap) return;
-  var icon=makeVIcon(v,false);
-  var popup=makePopup(v);
-  if(dashMarkers[mmsi]){
-    dashMarkers[mmsi].setLatLng([v.lat,v.lon]).setIcon(icon);
-    if(dashMarkers[mmsi].isPopupOpen()) dashMarkers[mmsi].setPopupContent(popup);
-  } else {
-    dashMarkers[mmsi]=L.marker([v.lat,v.lon],{icon:icon})
-      .bindPopup(popup,{maxWidth:240})
-      .bindTooltip(v.name||mmsi,{className:'vtt',direction:'top',offset:[0,-8]})
-      .addTo(dashMap);
-  }
-}
-
-// Stale vessel removal
-setInterval(function(){
-  if(!aisConnected) return;
-  var now=new Date();
-  Object.keys(dashVessels).forEach(function(mmsi){
-    var v=dashVessels[mmsi];
-    if(v.updated&&(now-v.updated)>15*60*1000){
-      if(dashMarkers[mmsi]){dashMap.removeLayer(dashMarkers[mmsi]);delete dashMarkers[mmsi];}
-      delete dashVessels[mmsi];
-    }
-  });
-},60000);
-
-// ════════════════════════════════════════════════════
-// FLEET (localStorage-backed)
-// ════════════════════════════════════════════════════
-function getFleet(){return lsGet(KEY_FLEET,[]);}
-function saveFleetData(fleet){lsSet(KEY_FLEET,fleet);}
-
-function renderFleet(){
-  var fleet=getFleet();
-  var grid=document.getElementById('fleet-grid');
-  var ph=document.getElementById('add-ph');
-
-  // Remove all existing cards
-  Array.from(grid.querySelectorAll('.vc')).forEach(function(c){c.remove();});
-
-  var underway=0,anchored=0,inport=0;
-
-  fleet.forEach(function(v){
-    var statusPill=v.status==='underway'?'pill-g':v.status==='anchored'?'pill-a':'pill-b';
-    var statusTxt=v.status==='underway'?'Underway':v.status==='anchored'?'Anchored':'In port';
-    if(v.status==='underway') underway++;
-    else if(v.status==='anchored') anchored++;
-    else inport++;
-
-    var card=document.createElement('div');
-    card.className='vc';
-    card.innerHTML='<div class="vc-top"><div><div style="font-size:18px;">'+(v.flag||'🚢')+'</div>'
-      +'<div class="vc-name">'+v.name+'</div>'
-      +'<div class="vc-type">'+(v.type||'Vessel')+(v.gt?' · '+v.gt+' GT':'')+'</div></div>'
-      +'<span class="pill '+statusPill+'">'+statusTxt+'</span></div>'
-      +'<div class="vc-stats">'
-      +'<div class="vc-stat"><div class="vc-stat-l">MMSI</div><div class="vc-stat-v" style="font-size:11px;">'+(v.mmsi||'—')+'</div></div>'
-      +'<div class="vc-stat"><div class="vc-stat-l">IMO</div><div class="vc-stat-v" style="font-size:11px;">'+(v.imo||'—')+'</div></div>'
-      +'<div class="vc-stat"><div class="vc-stat-l">Speed</div><div class="vc-stat-v">'+(v.speed||'—')+' kn</div></div>'
-      +'<div class="vc-stat"><div class="vc-stat-l">P&L</div><div class="vc-stat-v" style="color:var(--muted);">No voyage</div></div>'
-      +'</div>'
-      +'<div class="vc-actions">'
-      +'<button class="btn btn-s" style="font-size:12px;padding:6px 12px;">Details</button>'
-      +'<button class="btn btn-s" style="font-size:12px;padding:6px 12px;" onclick="editFleetVessel(\''+v.mmsi+'\')">Edit</button>'
-      +'<button class="btn-danger" onclick="removeFleetVessel(\''+v.mmsi+'\')">Remove</button>'
-      +'</div>';
-    grid.insertBefore(card,ph);
-  });
-
-  var summary=fleet.length+' vessels registered';
-  if(underway) summary+=' · '+underway+' underway';
-  if(anchored) summary+=' · '+anchored+' anchored';
-  if(inport) summary+=' · '+inport+' in port';
-  if(!fleet.length) summary='No vessels yet — add your first vessel';
-  document.getElementById('fleet-summary').textContent=summary;
-
-  // Always sync voyage planner dropdown
-  renderVoyageVessels();
-}
-
-// Populate voyage planner vessel dropdown from real fleet
-function renderVoyageVessels(){
-  var sel=document.getElementById('f-vessel');
-  if(!sel) return;
-  var fleet=getFleet();
-  var current=sel.value;
-  sel.innerHTML='';
-  if(!fleet.length){
-    var opt=document.createElement('option');
-    opt.value='';opt.textContent='— Add vessels in Fleet tab first —';
-    sel.appendChild(opt);
-    return;
-  }
-  fleet.forEach(function(v){
-    var opt=document.createElement('option');
-    opt.value=v.mmsi||v.name;
-    opt.textContent=(v.flag||'🚢')+' '+v.name+(v.type?' ('+v.type+')':'');
-    sel.appendChild(opt);
-  });
-  // Restore previous selection if still valid
-  if(current) sel.value=current;
-}
-
-function addVesselFromAIS(mmsi){
-  var v=dashVessels[mmsi];
-  if(!v) return;
-  var fleet=getFleet();
-  if(fleet.some(function(f){return f.mmsi===mmsi;})){showToast((v.name||mmsi)+' already in fleet','amber');return;}
-  fleet.push({
-    mmsi:v.mmsi,
-    name:v.name||'MMSI '+mmsi,
-    imo:v.imo||'',
-    flag:'🚢',
-    type:shipTypeName(v.shipType||0),
-    gt:'',speed:(v.speedKnots||0).toFixed(1),
-    status:'underway',
-    addedAt:new Date().toISOString(),
-    source:'ais'
-  });
-  saveFleetData(fleet);
-  renderVoyageVessels();
-  showToast('✓ '+(v.name||mmsi)+' added to fleet','green');
-}
-
-function removeFleetVessel(mmsi){
-  if(!confirm('Remove this vessel from fleet?')) return;
-  var fleet=getFleet().filter(function(f){return f.mmsi!==mmsi;});
-  saveFleetData(fleet);
-  renderFleet();
-  renderVoyageVessels();
-  showToast('Vessel removed','red');
-}
-
-function editFleetVessel(mmsi){
-  var fleet=getFleet();
-  var v=fleet.find(function(f){return f.mmsi===mmsi;});
-  if(!v) return;
-  document.getElementById('modal-title').textContent='Edit — '+v.name;
-  document.getElementById('m-name').value=v.name||'';
-  document.getElementById('m-imo').value=v.imo||'';
-  document.getElementById('m-mmsi').value=v.mmsi||'';
-  document.getElementById('m-gt').value=v.gt||'';
-  document.getElementById('m-spd').value=v.speed||'';
-  document.getElementById('m-notes').value=v.notes||'';
-  document.getElementById('add-modal').dataset.editMmsi=mmsi;
-  document.getElementById('add-modal').style.display='flex';
-}
-
-function openAddVessel(){
-  document.getElementById('modal-title').textContent='Add vessel';
-  ['m-name','m-imo','m-mmsi','m-gt','m-fuel','m-spd','m-notes'].forEach(function(id){document.getElementById(id).value='';});
-  delete document.getElementById('add-modal').dataset.editMmsi;
-  document.getElementById('add-modal').style.display='flex';
-}
-
-function closeModal(){document.getElementById('add-modal').style.display='none';}
-
-function saveVessel(){
-  var n=document.getElementById('m-name').value.trim();
-  if(!n){document.getElementById('m-name').style.borderColor='var(--red)';setTimeout(function(){document.getElementById('m-name').style.borderColor='';},2000);return;}
-  var flag=document.getElementById('m-flag').value.split(' ')[0];
-  var type=document.getElementById('m-type').value;
-  var gt=document.getElementById('m-gt').value||'';
-  var spd=document.getElementById('m-spd').value||'';
-  var mmsi=document.getElementById('m-mmsi').value||'';
-  var imo=document.getElementById('m-imo').value||'';
-  var notes=document.getElementById('m-notes').value||'';
-  var editMmsi=document.getElementById('add-modal').dataset.editMmsi;
-
-  var fleet=getFleet();
-  if(editMmsi){
-    fleet=fleet.map(function(f){
-      if(f.mmsi===editMmsi) return Object.assign({},f,{name:n,flag:flag,type:type,gt:gt,speed:spd,mmsi:mmsi||editMmsi,imo:imo,notes:notes});
-      return f;
-    });
-    showToast('✓ '+n+' updated','green');
-  } else {
-    fleet.push({mmsi:mmsi,name:n,imo:imo,flag:flag,type:type,gt:gt,speed:spd,notes:notes,status:'in port',addedAt:new Date().toISOString(),source:'manual'});
-    showToast('✓ '+n+' added to fleet','green');
-  }
-  saveFleetData(fleet);
-  closeModal();
-  renderFleet();
-  renderVoyageVessels();
-}
-
-// ════════════════════════════════════════════════════
-// VOYAGE P&L DETAIL
-// ════════════════════════════════════════════════════
-function selVessel(i){
-  selV=i;
-  var v=VESSEL_DATA[i];
-  var f=FX[cur];
-  var fr=f.r/10.8;
-  document.querySelectorAll('[id^=vr]').forEach(function(r,j){r.classList.toggle('sel',j===i);});
-  document.getElementById('sel-vname').textContent=v.name+' · '+v.from+' → '+v.to;
-  var profit=v.rev-v.costs;
-  var margin=v.rev>0?Math.round((profit/v.rev)*100):0;
-  var pos=profit>0;
-  document.getElementById('vdetail').innerHTML=
-    dr('Route',v.from+' → '+v.to)
-    +dr('Cargo',v.cargo,'font-size:11px;')
-    +dr('Distance',v.dist)
-    +dr('ETA',v.eta)
-    +dr('Revenue','+'+f.s+Math.round(v.rev*fr).toLocaleString(),'color:var(--green);')
-    +dr('Fuel','-'+f.s+Math.round(v.fuel*fr).toLocaleString(),'color:var(--red);')
-    +dr('Port+Agent','-'+f.s+Math.round((v.port+v.agent)*fr).toLocaleString(),'color:var(--red);')
-    +dr('Net P&L',(pos?'+':'-')+f.s+Math.round(Math.abs(profit)*fr).toLocaleString(),'color:'+(pos?'var(--green)':'var(--red)')+';font-size:14px;');
-  document.getElementById('mfill').style.width=Math.max(4,v.prog)+'%';
-  document.getElementById('mfill').style.background=pos?'var(--green)':'var(--red)';
-  document.getElementById('mpct').textContent=(pos?'+':'')+margin+'%';
-  document.getElementById('mpct').style.color=pos?'var(--green)':'var(--red)';
-}
-
-function dr(label,val,valStyle){
-  return '<div class="drow"><span class="dlabel">'+label+'</span><span class="dval" style="'+(valStyle||'')+'">'+val+'</span></div>';
-}
-
-// ════════════════════════════════════════════════════
-// VOYAGE ESTIMATOR
-// ════════════════════════════════════════════════════
-function calcEst(){
-  var from=document.getElementById('f-from').value;
-  var to=document.getElementById('f-to').value;
-  var wt=parseFloat(document.getElementById('f-wt').value)||4200;
-  var rate=parseFloat(document.getElementById('f-rate').value)||42;
-  var spd=parseFloat(document.getElementById('f-spd').value)||14;
-  if(from===to){document.getElementById('est-body').innerHTML='<div style="color:var(--red);text-align:center;padding:16px;font-size:13px;">Select different ports</div>';return;}
-  var d=(DIST[from]&&DIST[from][to])||2000;
-  var days=d/spd/24;
-  var bp=BUNK[from]||615;
-  var fuelUsd=Math.round(days*28*bp);
-  var portUsd=Math.round(d*8+12000);
-  var agentUsd=Math.round(8000+d*1.5);
-  var revUsd=Math.round(wt*rate);
-  var profitUsd=revUsd-fuelUsd-portUsd-agentUsd;
-  var margin=revUsd>0?Math.round((profitUsd/revUsd)*100):0;
-  var pos=profitUsd>0;
-  var dStr=Math.floor(days)+'d '+Math.round((days%1)*24)+'h';
-  document.getElementById('est-body').innerHTML=
-    er('Route',from+' → '+to)
-    +er('Distance',d.toLocaleString()+' nm')
-    +er('Voyage time',dStr+' at '+spd+'kn')
-    +er('Revenue','<span style="color:var(--green);">+$'+revUsd.toLocaleString()+'</span>')
-    +er('Fuel','<span style="color:var(--red);">-$'+fuelUsd.toLocaleString()+'</span>')
-    +er('Port dues','<span style="color:var(--red);">-$'+portUsd.toLocaleString()+'</span>')
-    +er('Agent fees','<span style="color:var(--red);">-$'+agentUsd.toLocaleString()+'</span>')
-    +'<div class="est-row" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;"><span class="est-l">Net P&L</span><span style="font-family:\'DM Mono\',monospace;font-size:18px;font-weight:500;color:'+(pos?'var(--green)':'var(--red)')+';">'+(pos?'+':'-')+'$'+Math.abs(profitUsd).toLocaleString()+'</span></div>'
-    +er('Margin','<span style="color:'+(pos?'var(--green)':'var(--red)')+';">'+margin+'%</span>')
-    +(!pos?'<div class="warn-box warn-r">Unprofitable at current rate — raise freight rate or reduce costs.</div>':'')
-    +(pos&&margin<35?'<div class="warn-box warn-a">Margin below 35% — tight. Review before committing.</div>':'');
-
-  var destBp=BUNK[to]||615;
-  var bestPort=bp<=destBp?from:to;
-  document.getElementById('port-comp').innerHTML=
-    dr('Bunker at '+from,'$'+bp+'/MT','color:var(--cyan);')
-    +dr('Bunker at '+to,'$'+destBp+'/MT','color:var(--cyan);')
-    +dr('Best on route',bestPort+' · $'+Math.min(bp,destBp)+'/MT','color:var(--green);')
-    +dr('Cheapest global','Rotterdam · $602/MT','color:var(--green);');
-}
-
-function er(label,val){return '<div class="est-row"><span class="est-l">'+label+'</span><span class="est-v">'+val+'</span></div>';}
-
-function createVoyage(){
-  var from=document.getElementById('f-from').value;
-  var to=document.getElementById('f-to').value;
-  if(from===to) return;
-  var vessel=document.getElementById('f-vessel').value;
-  var wt=document.getElementById('f-wt').value;
-  var rate=document.getElementById('f-rate').value;
-  var today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
-  vlog.unshift({vessel:vessel,from:from,to:to,wt:wt,rate:rate,date:today});
-  document.getElementById('voyage-log').innerHTML=vlog.map(function(v){
-    return '<div class="irow"><div class="iico iico-a">🚢</div><div style="flex:1;"><div class="iname">'+v.vessel+' — '+v.from+' → '+v.to+'</div><div class="imeta">'+v.date+' · '+v.wt+'MT · $'+v.rate+'/MT</div></div><span class="pill pill-g">Tracking</span></div>';
-  }).join('');
-  showToast('✓ Voyage created — tracking started','green');
-}
-
-// ════════════════════════════════════════════════════
-// ALERTS
-// ════════════════════════════════════════════════════
-function tog(btn){btn.classList.toggle('on');btn.classList.toggle('off');}
-function selType(el){document.querySelectorAll('.atype').forEach(function(a){a.classList.remove('sel');});el.classList.add('sel');}
-function addAlert(){
-  var n=document.getElementById('an').value.trim();
-  var c=document.getElementById('ac').value.trim();
-  if(!n||!c){document.getElementById('an').style.borderColor='var(--red)';setTimeout(function(){document.getElementById('an').style.borderColor='';},2000);return;}
-  var row=document.createElement('div');row.className='arow';
-  row.innerHTML='<div class="adot adot-g"></div><div style="flex:1;"><div class="aname">'+n+'</div><div class="adesc">'+c+' · just added</div></div><span class="pill pill-g" style="font-size:10px;">Watching</span><button class="toggle on" onclick="tog(this)"><div class="tthumb"></div></button>';
-  document.getElementById('alert-list').appendChild(row);
-  var cnt=document.getElementById('alert-list').querySelectorAll('.arow').length;
-  document.getElementById('alrt-count').textContent=cnt+' ACTIVE';
-  document.getElementById('an').value='';document.getElementById('ac').value='';
-  showToast('✓ Alert active','green');
-}
-
-// ════════════════════════════════════════════════════
-// SETTINGS
-// ════════════════════════════════════════════════════
-function renderSettings(){
-  var key=lsGet(KEY_AIS,'');
-  var keyDot=document.getElementById('key-dot');
-  var keyDisplay=document.getElementById('key-display');
-  if(key){
-    keyDot.style.background='var(--green)';
-    keyDisplay.textContent=key.substring(0,8)+'••••••••';
-  } else {
-    keyDot.style.background='var(--muted)';
-    keyDisplay.textContent='Not set';
-  }
-  setTheme(isDark?'dark':'light');
-  var currEl=document.getElementById('settings-currency');
-  if(currEl) currEl.value=cur;
-}
-
-function saveAISKey(){
-  var key=document.getElementById('settings-ais-key').value.trim();
-  if(!key){document.getElementById('settings-ais-key').style.borderColor='var(--red)';setTimeout(function(){document.getElementById('settings-ais-key').style.borderColor='';},2000);return;}
-  connectAIS(key);
-  document.getElementById('settings-ais-key').value='';
-  renderSettings();
-  showToast('✓ AIS key saved — connecting','green');
-}
-
-function clearAISKey(){
-  if(!confirm('Remove AIS key and disconnect?')) return;
-  lsDel(KEY_AIS);
-  disconnectAIS();
-  dashVessels={};
-  Object.values(dashMarkers).forEach(function(m){if(dashMap)dashMap.removeLayer(m);});
-  dashMarkers={};
-  document.getElementById('kpi-vessels').textContent='0';
-  document.getElementById('map-count').textContent='0 vessels';
-  document.getElementById('map-overlay').style.display='flex';
-  renderSettings();
-  showToast('AIS key removed','red');
-}
-
-function updateAISRegion(){
-  currentRegion=document.getElementById('settings-region').value;
-  resubscribeAIS();
-}
-
-function saveSettings(){
-  showToast('✓ Settings saved','green');
-}
-
-function clearAllData(){
-  if(!confirm('Clear ALL local data? This removes your AIS key, fleet, and settings.')) return;
-  try{localStorage.clear();}catch(e){}
-  showToast('All local data cleared','red');
-  setTimeout(function(){location.reload();},1500);
-}
-
-// ════════════════════════════════════════════════════
-// CHART
-// ════════════════════════════════════════════════════
-function buildChart(){
-  var canvas=document.getElementById('pnlChart');
-  if(!canvas) return;
-  if(pnlChart){pnlChart.destroy();pnlChart=null;}
-  // Read CSS vars after theme change
-  var lineColor=getComputedStyle(document.documentElement).getPropertyValue('--chart-line').trim();
-  var fillColor=getComputedStyle(document.documentElement).getPropertyValue('--chart-fill').trim();
-  var gridColor=getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();
-  var textColor=getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim();
-  pnlChart=new Chart(canvas,{
-    type:'line',
-    data:{
-      labels:['Mar 29','Mar 30','Mar 31','Apr 1','Apr 2','Apr 3','Apr 4'],
-      datasets:[{data:[42000,68000,55000,91000,78000,103000,84320],borderColor:lineColor,backgroundColor:fillColor,borderWidth:1.5,pointRadius:2,pointBackgroundColor:lineColor,tension:0.4,fill:true}]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{grid:{color:gridColor},ticks:{color:textColor,font:{size:9}}},
-        y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:9},callback:function(v){return '$'+Math.round(v/1000)+'k';}}}
-      }
-    }
-  });
-}
-
-// ════════════════════════════════════════════════════
-// TOAST
-// ════════════════════════════════════════════════════
-function showToast(msg,color){
-  var colors={green:'var(--green)',amber:'var(--amber)',red:'var(--red)'};
-  var el=document.createElement('div');
-  el.className='toast';
-  el.style.cssText='background:var(--surface);border:1px solid '+(colors[color]||colors.green)+';color:'+(colors[color]||colors.green)+';';
-  el.textContent=msg;
-  document.body.appendChild(el);
-  setTimeout(function(){el.style.opacity='0';setTimeout(function(){el.remove();},300);},2500);
-}
-
-// ════════════════════════════════════════════════════
-// CLOCK + LIVE P&L TICK
-// ════════════════════════════════════════════════════
-setInterval(function(){
-  var n=new Date();
-  document.getElementById('clk').textContent=
-    [n.getUTCHours(),n.getUTCMinutes(),n.getUTCSeconds()].map(function(v){return String(v).padStart(2,'0');}).join(':')+' UTC';
-},1000);
-
-setInterval(function(){
-  pnl+=Math.round((Math.random()-0.3)*1200);
-  var f=FX[cur];
-  document.getElementById('kpi-pnl').textContent=(pnl>=0?'+':'')+f.s+Math.round(pnl*f.r/10.8).toLocaleString();
-  document.getElementById('kpi-pnl').className='kpi-val '+(pnl>=0?'g':'r');
-},4000);
-
-document.getElementById('f-from').addEventListener('change',calcEst);
-document.getElementById('f-to').addEventListener('change',calcEst);
-
-// ════════════════════════════════════════════════════
-// INIT
-// ════════════════════════════════════════════════════
-initMap();
-selVessel(0);
-buildChart();
-renderFleet();
-renderVoyageVessels();
-
-// Auto-connect if key saved
-(function(){
-  var saved=lsGet(KEY_AIS,'');
-  if(saved){setTimeout(function(){connectAIS(saved);},600);}
-})();
-</script>
+<!-- ── LOG INVOICE MODAL ─────────────────────────────────────────── -->
+<div class="modal-bg" id="inv-modal" style="display:none;" onclick="if(event.target===this)closeInvoiceModal()">
+  <div class="modal">
+    <div class="modal-h"><div class="modal-title">Log invoice</div><button class="modal-close" onclick="closeInvoiceModal()">×</button></div>
+    <div class="modal-body">
+      <div class="fg">
+        <label class="flabel">Extract from PDF or text</label>
+        <input class="finput" type="file" id="i-file" accept="application/pdf,image/*" style="padding:7px 10px;"/>
+      </div>
+      <div class="fg">
+        <textarea class="finput" id="i-text" rows="3" placeholder="Or paste invoice / email text…" style="min-height:72px;resize:vertical;font-family:'DM Sans',sans-serif;"></textarea>
+      </div>
+      <button class="btn btn-s" id="i-extract-btn" onclick="extractInvoiceAI()" style="width:100%;margin-bottom:14px;">Extract with AI →</button>
+      <div class="fgrid">
+        <div class="fg"><label class="flabel">Vendor</label><input class="finput" type="text" id="i-vendor" placeholder="e.g. Rotterdam Bunkers"/></div>
+        <div class="fg"><label class="flabel">Amount (USD)</label><input class="finput" type="number" id="i-amt" placeholder="e.g. 26400"/></div>
+        <div class="fg"><label class="flabel">Category</label>
+          <select class="fselect" id="i-cat">
+            <option value="fuel">Fuel</option>
+            <option value="port_dues">Port dues</option>
+            <option value="agent_fees">Agent fees</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="fg"><label class="flabel">Port</label><select class="fselect" id="i-port"><option>Bergen</option><option>Rotterdam</option><option>Singapore</option><option>Dubai</option><option>Istanbul</option><option>Houston</option><option>Tokyo</option><option>Fujairah</option></select></div>
+        <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="i-vessel"><option value="">— Optional —</option></select></div>
+        <div class="fg"><label class="flabel">Status</label><select class="fselect" id="i-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-s" onclick="closeInvoiceModal()">Cancel</button><button class="btn btn-p" onclick="saveInvoice()">Confirm &amp; save →</button></div>
+  </div>
+</div>
+
+<!-- ── AUTH MODAL ─────────────────────────────────────────── -->
+<div class="modal-bg" id="auth-modal" style="display:none;" onclick="if(event.target===this)closeAuthModal()">
+  <div class="modal" style="width:400px;">
+    <div class="modal-h"><div class="modal-title" id="auth-title">Sign in</div><button class="modal-close" onclick="closeAuthModal()">×</button></div>
+    <div class="modal-body">
+      <div class="fg"><label class="flabel">Email</label><input class="finput" type="email" id="auth-email" placeholder="you@company.no"/></div>
+      <div class="fg"><label class="flabel">Password</label><input class="finput" type="password" id="auth-pass" placeholder="At least 8 characters"/></div>
+      <div id="auth-error" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.6;">Accounts live on this NavProfit server. Signing in syncs fleet, voyages, invoices and alerts across browsers.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-s" onclick="submitAuth('register')">Create account</button>
+      <button class="btn btn-p" onclick="submitAuth('login')">Sign in →</button>
+    </div>
+  </div>
+</div>
+
+<script src="src/app.js"></script>
 </body>
 </html>

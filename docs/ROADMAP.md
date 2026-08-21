@@ -4,53 +4,46 @@
 
 ## Phase 1 — Working prototype ✅ DONE
 - [x] Dashboard with live P&L simulation
-- [x] Global vessel map
-- [x] Bunker price table (6 global ports)
+- [x] Global vessel map (Leaflet)
+- [x] Bunker price table (indicative)
 - [x] Voyage planner with cost estimator
 - [x] Fleet management (add/edit/remove vessels)
 - [x] Alert system with notification log
 - [x] Multi-currency support
 - [x] Mobile responsive layout
-- [x] Invoice list with AI extraction concept
 
 ---
 
-## Phase 2 — Real data connections (NEXT)
+## Phase 2 — Make it operational (IN PROGRESS)
 
-### Priority 1 — AIS connection
-- [ ] Connect aisstream.io WebSocket
-- [ ] Real vessel positions on map
-- [ ] Live speed, heading, destination updates
-- [ ] Vessel arrival/departure detection
-- [ ] Norwegian coast as first region
+### Done
+- [x] Connect aisstream.io WebSocket
+- [x] Real vessel positions on map
+- [x] Live speed, heading, destination updates
+- [x] Fleet as source of truth for Overview / Voyage planner
+- [x] Persist voyages, invoices, alerts in the browser
+- [x] Alerts evaluate fuel / margin / AIS arrival
+- [x] Sample data is opt-in, not the default dashboard
 
-### Priority 2 — Live fuel prices
-- [ ] Connect OilPriceAPI
-- [ ] Auto-refresh every 4 hours
-- [ ] Price change alerts trigger automatically
+- [x] Connect OilPriceAPI for live bunker prices (each user pastes their own key in Settings; indicative fallback)
+- [x] PDF / pasted-text invoice extraction (each user pastes their Anthropic key; confirm before save)
+- [x] User registration / login with per-user store on this server
+
+### Next
+- [ ] Arrival/departure detection against destination port
+- [ ] Auto-refresh fuel every 4 hours
 - [ ] Historical price chart per port
+- [ ] Hosted database (PostgreSQL / Appwrite) instead of `data/` files
 
-### Priority 3 — AI invoice extraction
-- [ ] Email forwarding address (operator forwards invoice → auto-extracted)
-- [ ] PDF upload in UI
-- [ ] Claude API extracts: amount, vendor, port, vessel, category
-- [ ] One-click confirm before logging
-- [ ] Anomaly detection (price above market rate)
+## Phase 3 — Hosted backend
 
----
-
-## Phase 3 — User accounts & persistence
-
-- [ ] User registration / login
-- [ ] Each operator has their own fleet and data
-- [ ] Database (PostgreSQL recommended)
-- [ ] Voyage history stored permanently
+- [x] Local accounts + JSON store (`data/`)
+- [ ] Database (PostgreSQL or Appwrite)
+- [ ] Voyage history stored permanently off-box
 - [ ] Invoice archive
 - [ ] Export to CSV / Excel
 
 ---
-
-## Phase 4 — Mobile app
 
 - [ ] React Native or PWA
 - [ ] Captain view — simplified, phone-friendly
@@ -64,7 +57,7 @@
 
 - [ ] Voyage profitability forecasting
 - [ ] Optimal bunkering port recommendations
-- [ ] Route cost comparison
+- [ ] Route cost comparison (real routing, not a port table)
 - [ ] Market freight rate benchmarking
 - [ ] Cash flow forecasting (30/60/90 days)
 - [ ] Anomaly detection on all costs
@@ -83,11 +76,10 @@
 
 ## Technical debt to address
 
-- Replace SVG map with Mapbox or Leaflet for real vessel plotting
-- Add proper error handling on all API calls
-- Add loading states throughout UI
-- Rate limiting and caching for API calls
-- Proper TypeScript types if moving to TS
+- Split remaining UI chrome out of `index.html`
+- Proper error handling and reconnect backoff on AIS
+- Rate limiting and caching for bunker APIs
+- TypeScript if the app grows past a single JS file
 
 ---
 
@@ -98,8 +90,7 @@
 What that requires:
 1. Real AIS data for their specific vessels (MMSI numbers)
 2. Manual voyage setup with their real routes and rates
-3. Simple way for them to log costs (email forward or manual entry)
+3. Simple way for them to log costs (manual entry now; email later)
 4. Dashboard they can check on their phone
 
-That's Phase 2 Priority 1 + Priority 3 basics.
-Timeline estimate: 2-3 weeks of focused work.
+That's this operational slice + live bunker prices.

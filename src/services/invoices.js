@@ -2,9 +2,8 @@
  * NavProfit — AI invoice extraction service
  * Uses Claude API to extract structured data from invoices
  *
- * Setup:
- * 1. Get API key at https://console.anthropic.com
- * 2. Add ANTHROPIC_API_KEY to your .env file
+ * Setup: each user pastes their Anthropic key in Settings → Invoice AI.
+ * The Express server proxies Claude (browsers cannot call it directly).
  */
 
 const CLAUDE_API = 'https://api.anthropic.com/v1/messages';
