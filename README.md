@@ -13,6 +13,8 @@ npm install
 npm start
 ```
 
+Or double-click `start.bat` on Windows / run `./start.sh` on Mac or Linux. That installs once, opens http://localhost:3000, and keeps the window open while NavProfit runs.
+
 Open http://localhost:3000
 
 1. **Sign in** (top right) to sync this browser to your account, or keep working locally.
@@ -21,8 +23,12 @@ Open http://localhost:3000
    - OilPriceAPI for live bunker prices (optional)
    - Anthropic for invoice extract (optional)
 3. Click a ship → **Add to fleet** → Voyage planner → **Create voyage**.
+4. When the voyage is done, **Close with actuals** (fuel / port / agent vs the estimate).
+5. Settings → **Download backup** now and then. Restore from that file if this PC is replaced.
 
 NavProfit does not ship a shared OilPrice or Claude key. Each user brings their own, or skips those features. A key in `.env` is only an optional fallback for the installer.
+
+There is no hosted database. Everything lives on this machine (`data/` when signed in, plus a backup JSON you keep).
 
 ---
 
@@ -35,6 +41,7 @@ NavProfit does not ship a shared OilPrice or Claude key. Each user brings their 
 | FX | Server → open.er-api.com (no key) |
 | Invoice AI | Your Anthropic key in Settings (optional) |
 | Accounts + sync | Email/password on this server (`data/`) |
+| Backup file | Settings → Download backup / Restore |
 
 Your OilPrice and Anthropic keys are sent to this NavProfit server only to proxy the vendor APIs (browsers block those calls directly). If you sign in, they are stored on your account on this machine — not shared with other users.
 
@@ -44,6 +51,7 @@ Your OilPrice and Anthropic keys are sent to this NavProfit server only to proxy
 
 ```
 navprofit/
+├── start.bat / start.sh  # one-click run on this PC
 ├── server.js             # Express: APIs, auth, static files
 ├── index.html            # UI shell
 ├── src/app.js            # Client app
@@ -61,4 +69,7 @@ navprofit/
 🟢 Bunker prices live when *you* add an OilPriceAPI key in Settings  
 🟢 Invoice AI when *you* add an Anthropic key in Settings  
 🟢 Sign-in syncs fleet/voyages/invoices/alerts on this server  
-🟡 Hosted multi-tenant database (Postgres / Appwrite) — not yet  
+🟢 Backup / restore JSON on this PC  
+🟢 Close voyage with actuals vs estimate  
+🟢 Extra ports + typed nautical miles  
+🟡 Hosted multi-tenant database — not planned for the standalone install  
