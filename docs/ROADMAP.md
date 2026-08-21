@@ -28,12 +28,17 @@
 - [x] Connect OilPriceAPI for live bunker prices (each user pastes their own key in Settings; indicative fallback)
 - [x] PDF / pasted-text invoice extraction (each user pastes their Anthropic key; confirm before save)
 - [x] User registration / login with per-user store on this server
+- [x] Backup / restore JSON on this PC
+- [x] Close voyage with actual costs vs the estimate
+- [x] Custom ports and typed nautical miles
+- [x] AIS auto-reconnect
+- [x] One-click start (`start.bat` / `start.sh`)
 
 ### Next
 - [ ] Arrival/departure detection against destination port
-- [ ] Auto-refresh fuel every 4 hours
 - [ ] Historical price chart per port
-- [ ] Hosted database (PostgreSQL / Appwrite) instead of `data/` files
+
+Standalone is the default. A hosted database is optional later if NavProfit is offered as a cloud service — not required for one operator on one PC.
 
 ## Phase 3 — Hosted backend
 
@@ -78,7 +83,6 @@
 
 - Split remaining UI chrome out of `index.html`
 - Proper error handling and reconnect backoff on AIS
-- Rate limiting and caching for bunker APIs
 - TypeScript if the app grows past a single JS file
 
 ---

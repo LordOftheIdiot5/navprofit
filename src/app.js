@@ -12,6 +12,7 @@ var KEY_VOYAGES = 'navprofit_voyages';
 var KEY_INVOICES = 'navprofit_invoices';
 var KEY_ALERTS = 'navprofit_alerts';
 var KEY_NOTIFS = 'navprofit_notifs';
+var KEY_PORTS = 'navprofit_ports';
 var MAX_VESSELS = 1500;
 
 var FX = {
@@ -23,24 +24,38 @@ var FX = {
 };
 
 var DIST = {
-  Bergen: { Rotterdam: 612, Singapore: 10940, Dubai: 6240, Istanbul: 2840, Houston: 8200, Tokyo: 11800, 'New York': 6100 },
-  Rotterdam: { Bergen: 612, Singapore: 10640, Dubai: 6640, Istanbul: 2180, Houston: 7600, Tokyo: 11200, 'New York': 5550 },
+  Bergen: { Rotterdam: 612, Singapore: 10940, Dubai: 6240, Istanbul: 2840, Houston: 8200, Tokyo: 11800, 'New York': 6100, Stavanger: 134, Ålesund: 230, Trondheim: 490, Tromsø: 1080, Oslo: 305, Kristiansund: 280, Haugesund: 70, Bodø: 770 },
+  Rotterdam: { Bergen: 612, Singapore: 10640, Dubai: 6640, Istanbul: 2180, Houston: 7600, Tokyo: 11200, 'New York': 5550, Stavanger: 720, Ålesund: 840, Trondheim: 1080, Oslo: 550 },
   Singapore: { Bergen: 10940, Rotterdam: 10640, Dubai: 3640, Istanbul: 8200, Houston: 13200, Tokyo: 3300, 'New York': 15600 },
   Dubai: { Bergen: 6240, Rotterdam: 6640, Singapore: 3640, Istanbul: 3620, Houston: 9800, Tokyo: 5900, 'New York': 11200 },
   Istanbul: { Bergen: 2840, Rotterdam: 2180, Singapore: 8200, Dubai: 3620, Houston: 9200, Tokyo: 9800, 'New York': 8100 },
   Houston: { Bergen: 8200, Rotterdam: 7600, Singapore: 13200, Dubai: 9800, Istanbul: 9200, Tokyo: 9800, 'New York': 1600 },
   Tokyo: { Bergen: 11800, Rotterdam: 11200, Singapore: 3300, Dubai: 5900, Istanbul: 9800, Houston: 9800, 'New York': 10300 },
-  'New York': { Bergen: 6100, Rotterdam: 5550, Singapore: 15600, Dubai: 11200, Istanbul: 8100, Houston: 1600, Tokyo: 10300 }
+  'New York': { Bergen: 6100, Rotterdam: 5550, Singapore: 15600, Dubai: 11200, Istanbul: 8100, Houston: 1600, Tokyo: 10300 },
+  Stavanger: { Bergen: 134, Rotterdam: 720, Ålesund: 340, Haugesund: 40, Oslo: 280, Kristiansund: 390 },
+  Ålesund: { Bergen: 230, Stavanger: 340, Kristiansund: 80, Trondheim: 280, Rotterdam: 840, Tromsø: 820 },
+  Kristiansund: { Ålesund: 80, Bergen: 280, Trondheim: 140, Stavanger: 390 },
+  Trondheim: { Bergen: 490, Kristiansund: 140, Ålesund: 280, Bodø: 280, Tromsø: 612, Stavanger: 560, Rotterdam: 1080 },
+  Bodø: { Trondheim: 280, Tromsø: 200, Bergen: 770 },
+  Tromsø: { Bergen: 1080, Trondheim: 612, Bodø: 200, Hammerfest: 180, Kirkenes: 420, Ålesund: 820, Stavanger: 1204 },
+  Hammerfest: { Tromsø: 180, Kirkenes: 250 },
+  Kirkenes: { Tromsø: 420, Hammerfest: 250 },
+  Oslo: { Bergen: 305, Stavanger: 280, Rotterdam: 550 },
+  Haugesund: { Bergen: 70, Stavanger: 40 }
 };
 
 var BUNK = {
   Bergen: 618, Rotterdam: 602, Singapore: 625, Dubai: 614, Istanbul: 619,
-  Houston: 608, Tokyo: 631, 'New York': 622, Fujairah: 614, Stavanger: 641
+  Houston: 608, Tokyo: 631, 'New York': 622, Fujairah: 614, Stavanger: 641,
+  Ålesund: 611, Trondheim: 624, Tromsø: 629, Oslo: 622, Kristiansund: 620,
+  Bodø: 628, Haugesund: 616, Hammerfest: 632, Kirkenes: 635
 };
 
 var PORT_FLAG = {
   Bergen: '🇳🇴', Rotterdam: '🇳🇱', Singapore: '🇸🇬', Dubai: '🇦🇪', Istanbul: '🇹🇷',
-  Houston: '🇺🇸', Tokyo: '🇯🇵', 'New York': '🇺🇸', Fujairah: '🇦🇪', Stavanger: '🇳🇴'
+  Houston: '🇺🇸', Tokyo: '🇯🇵', 'New York': '🇺🇸', Fujairah: '🇦🇪', Stavanger: '🇳🇴',
+  Ålesund: '🇳🇴', Trondheim: '🇳🇴', Tromsø: '🇳🇴', Oslo: '🇳🇴', Kristiansund: '🇳🇴',
+  Bodø: '🇳🇴', Haugesund: '🇳🇴', Hammerfest: '🇳🇴', Kirkenes: '🇳🇴'
 };
 
 var HOME_PORTS = {
@@ -87,6 +102,7 @@ var lastEstimate = null;
 var lastFleetSync = 0;
 
 var aisSocket = null, aisConnected = false, aisKey = '', aisMsgCount = 0;
+var aisWanted = false, aisRetry = 0, aisRetryTimer = null;
 var dashMap = null, darkTile = null, lightTile = null;
 var dashVessels = {}, dashMarkers = {}, fleetMarkers = {};
 var bboxTimer = null, pnlChart = null;
@@ -156,14 +172,65 @@ function shortDate(iso) {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
-function getDistance(from, to) {
-  if (from === to) return 0;
-  return (DIST[from] && DIST[from][to]) || (DIST[to] && DIST[to][from]) || null;
+function getCustomLegs() { return lsGet(KEY_PORTS, []); }
+function saveCustomLegs(list) { lsSet(KEY_PORTS, list); scheduleCloudSync(); }
+
+function allPortNames() {
+  var names = {};
+  Object.keys(DIST).forEach(function (p) {
+    names[p] = true;
+    Object.keys(DIST[p]).forEach(function (q) { names[q] = true; });
+  });
+  Object.keys(BUNK).forEach(function (p) { names[p] = true; });
+  getCustomLegs().forEach(function (leg) {
+    if (leg.a) names[leg.a] = true;
+    if (leg.b) names[leg.b] = true;
+  });
+  return Object.keys(names).sort(function (a, b) { return a.localeCompare(b); });
 }
 
-function estimateVoyage(from, to, cargoMT, rateUSD, speedKnots, fuelPerDay) {
+function fillPortSelect(sel, preferred) {
+  if (!sel) return;
+  var current = preferred != null ? preferred : sel.value;
+  sel.innerHTML = '';
+  allPortNames().forEach(function (p) {
+    var o = document.createElement('option');
+    o.value = p;
+    o.textContent = (PORT_FLAG[p] ? PORT_FLAG[p] + ' ' : '') + p;
+    sel.appendChild(o);
+  });
+  if (current && Array.prototype.some.call(sel.options, function (o) { return o.value === current; })) {
+    sel.value = current;
+  }
+}
+
+function fillAllPortSelects() {
+  fillPortSelect($('f-from'), $('f-from') && $('f-from').value || 'Bergen');
+  fillPortSelect($('f-to'), $('f-to') && $('f-to').value || 'Rotterdam');
+  fillPortSelect($('i-port'), $('i-port') && $('i-port').value || 'Bergen');
+  fillPortSelect($('a-port'), $('a-port') && $('a-port').value || 'Rotterdam');
+  fillPortSelect($('port-from'), $('port-from') && $('port-from').value || 'Bergen');
+}
+
+function voyagePnl(v) {
+  if (!v) return 0;
+  if (v.status === 'completed' && Number.isFinite(Number(v.actualProfitUSD))) return Number(v.actualProfitUSD);
+  return Number(v.profitUSD) || 0;
+}
+
+function getDistance(from, to) {
+  if (!from || !to || from === to) return 0;
+  var table = (DIST[from] && DIST[from][to]) || (DIST[to] && DIST[to][from]);
+  if (table) return table;
+  var hit = getCustomLegs().find(function (leg) {
+    return (leg.a === from && leg.b === to) || (leg.a === to && leg.b === from);
+  });
+  return hit ? Number(hit.nm) : null;
+}
+
+function estimateVoyage(from, to, cargoMT, rateUSD, speedKnots, fuelPerDay, distanceNM) {
   if (!from || !to || from === to) return null;
-  var d = getDistance(from, to);
+  var d = Number(distanceNM) > 0 ? Number(distanceNM) : getDistance(from, to);
   if (!d) return null;
   var spd = speedKnots > 0 ? speedKnots : 14;
   var burn = fuelPerDay > 0 ? fuelPerDay : 28;
@@ -220,7 +287,7 @@ function gotoPage(id, btn) {
     var navs = document.querySelectorAll('.tnav');
     if (navs[map[id]]) navs[map[id]].classList.add('active');
   }
-  if (id === 'voyage') { renderVoyageVessels(); setTimeout(calcEst, 50); }
+  if (id === 'voyage') { fillAllPortSelects(); renderVoyageVessels(); syncDistanceField(); setTimeout(calcEst, 50); }
   if (id === 'fleet') renderFleet();
   if (id === 'settings') renderSettings();
   if (id === 'alerts') { renderAlertVesselSelect(); renderAlerts(); renderNotifs(); }
@@ -305,11 +372,14 @@ function promptAISConnect() {
 function connectAIS(key) {
   if (!key) return;
   aisKey = key;
+  aisWanted = true;
   lsSet(KEY_AIS, key);
+  clearTimeout(aisRetryTimer);
   if (aisSocket) { aisSocket.onclose = null; aisSocket.close(); aisSocket = null; }
   setAISStatus('connecting');
   aisSocket = new WebSocket('wss://stream.aisstream.io/v0/stream');
   aisSocket.onopen = function () {
+    aisRetry = 0;
     aisSocket.send(JSON.stringify({
       APIKey: key,
       BoundingBoxes: [getBBox()],
@@ -332,16 +402,32 @@ function connectAIS(key) {
   };
   aisSocket.onerror = function () { setAISStatus('error'); };
   aisSocket.onclose = function () {
-    if (aisConnected) {
-      aisConnected = false;
-      setAISStatus('offline');
-      $('ais-bar-btn').textContent = 'Reconnect';
-      $('ais-bar-btn').onclick = function () { connectAIS(aisKey); };
-    }
+    aisConnected = false;
+    aisSocket = null;
+    setAISStatus('offline');
+    $('ais-bar-btn').textContent = aisWanted ? 'Reconnect' : 'Connect';
+    $('ais-bar-btn').onclick = aisWanted ? function () { connectAIS(aisKey); } : promptAISConnect;
+    if (aisWanted) scheduleAISReconnect();
   };
 }
 
+function scheduleAISReconnect() {
+  if (!aisWanted || !aisKey) return;
+  clearTimeout(aisRetryTimer);
+  var delay = Math.min(30000, 2000 * Math.pow(2, aisRetry));
+  aisRetry += 1;
+  var secs = Math.round(delay / 1000);
+  if ($('ais-bar-status')) $('ais-bar-status').textContent = 'Reconnecting in ' + secs + 's…';
+  if ($('ais-status-txt')) $('ais-status-txt').textContent = 'AIS retry ' + secs + 's';
+  aisRetryTimer = setTimeout(function () {
+    if (aisWanted) connectAIS(aisKey);
+  }, delay);
+}
+
 function disconnectAIS() {
+  aisWanted = false;
+  aisRetry = 0;
+  clearTimeout(aisRetryTimer);
   aisConnected = false;
   if (aisSocket) { aisSocket.onclose = null; aisSocket.close(); aisSocket = null; }
   setAISStatus('offline');
@@ -573,7 +659,7 @@ function renderKPIs() {
   var triggered = getAlerts().filter(function (a) { return a.enabled !== false && a.triggered; });
   var liveCount = fleet.filter(function (f) { return dashVessels[String(f.mmsi)]; }).length;
 
-  var pnl = vos.reduce(function (s, v) { return s + (v.profitUSD || 0); }, 0);
+  var pnl = vos.reduce(function (s, v) { return s + voyagePnl(v); }, 0);
   var el = $('kpi-pnl');
   if (vos.length) {
     el.textContent = money(pnl, true);
@@ -649,7 +735,7 @@ function renderPnlRail() {
     var st = statusPill(liveStatus(v));
     var vo = voyageFor(v.mmsi);
     var right = vo
-      ? '<span class="dval" style="color:' + (vo.profitUSD >= 0 ? 'var(--green)' : 'var(--red)') + '">' + esc(money(vo.profitUSD, true)) + '</span>'
+      ? '<span class="dval" style="color:' + (voyagePnl(vo) >= 0 ? 'var(--green)' : 'var(--red)') + '">' + esc(money(voyagePnl(vo), true)) + '</span>'
       : '<span class="pill ' + st.cls + '">' + st.txt + '</span>';
     return '<div class="drow clickable' + (String(v.mmsi) === selMmsi ? ' sel' : '') + '" onclick="showVessel(\'' + esc(v.mmsi) + '\')">'
       + '<span style="font-size:13px;font-weight:500;">' + esc((v.flag || '') + ' ' + v.name) + '</span>' + right + '</div>';
@@ -923,28 +1009,53 @@ function saveVessel() {
 // ════════════════════════════════════════════════════
 // VOYAGE PLANNER
 // ════════════════════════════════════════════════════
+function syncDistanceField() {
+  var from = $('f-from') && $('f-from').value;
+  var to = $('f-to') && $('f-to').value;
+  var el = $('f-nm');
+  if (!el) return;
+  var known = getDistance(from, to);
+  if (known > 0) {
+    el.value = known;
+    el.placeholder = 'From distance table';
+  } else {
+    if (!el.dataset.dirty) el.value = '';
+    el.placeholder = 'Not on file — type nm';
+  }
+}
+
+function onRouteChange() {
+  if ($('f-nm')) $('f-nm').dataset.dirty = '';
+  syncDistanceField();
+  calcEst();
+}
+
 function calcEst() {
   var from = $('f-from').value, to = $('f-to').value;
   var wt = parseFloat($('f-wt').value) || 0;
   var rate = parseFloat($('f-rate').value) || 0;
   var spd = parseFloat($('f-spd').value) || 14;
   var burn = parseFloat($('f-fuel').value) || 28;
+  var typed = parseFloat($('f-nm') && $('f-nm').value);
   if (from === to) {
     $('est-body').innerHTML = '<div style="color:var(--red);text-align:center;padding:16px;font-size:13px;">Select different ports</div>';
     lastEstimate = null;
     return;
   }
-  if (!getDistance(from, to)) {
-    $('est-body').innerHTML = '<div class="empty">No distance on file for this pair. Distances are a static table, not live routing.</div>';
+  var nm = typed > 0 ? typed : getDistance(from, to);
+  if (!nm) {
+    $('est-body').innerHTML = '<div class="empty"><strong>No distance on file</strong>Type nautical miles below, or add this port pair in Settings.</div>';
     lastEstimate = null;
     return;
   }
-  var est = estimateVoyage(from, to, wt, rate, spd, burn);
+  var est = estimateVoyage(from, to, wt, rate, spd, burn, nm);
   lastEstimate = est;
   var pos = est.profitUSD > 0;
+  var tableNm = getDistance(from, to);
+  var nmNote = tableNm && tableNm === est.distanceNM ? 'table' : 'your figure';
   $('est-body').innerHTML =
     er('Route', from + ' → ' + to)
-    + er('Distance', est.distanceNM.toLocaleString() + ' nm')
+    + er('Distance', est.distanceNM.toLocaleString() + ' nm <span style="color:var(--muted);font-size:10px;">(' + nmNote + ')</span>')
     + er('Voyage time', est.durationLabel + ' at ' + spd + ' kn')
     + er('Burn', burn + ' MT/day · ' + est.fuelTons + ' MT')
     + er('Revenue', '<span style="color:var(--green);">+$' + est.revenueUSD.toLocaleString() + '</span>')
@@ -1009,23 +1120,118 @@ function renderVoyageLog() {
     return;
   }
   $('voyage-log').innerHTML = list.map(function (v) {
-    var pill = v.status === 'active' ? 'pill-g">Tracking' : 'pill-b">Completed';
+    var done = v.status === 'completed';
+    var pnl = voyagePnl(v);
+    var pill = done ? 'pill-b">Completed' : 'pill-g">Tracking';
+    var meta = esc(shortDate(v.createdAt)) + ' · ' + esc(v.cargoMT) + ' MT · $' + esc(v.freightRateUSD) + '/MT · est ' + esc(money(v.profitUSD, true));
+    if (done && Number.isFinite(Number(v.actualProfitUSD))) {
+      meta += ' · actual ' + esc(money(v.actualProfitUSD, true));
+    }
     return '<div class="irow"><div class="iico iico-a">🚢</div><div style="flex:1;"><div class="iname">' + esc(v.vesselName) + ' — ' + esc(v.from) + ' → ' + esc(v.to) + '</div>'
-      + '<div class="imeta">' + esc(shortDate(v.createdAt)) + ' · ' + esc(v.cargoMT) + ' MT · $' + esc(v.freightRateUSD) + '/MT · ' + esc(money(v.profitUSD, true)) + '</div></div>'
+      + '<div class="imeta">' + meta + '</div></div>'
       + '<span class="pill ' + pill + '</span>'
-      + (v.status === 'active' ? '<button class="btn btn-s" style="font-size:11px;padding:4px 8px;margin-left:8px;" onclick="completeVoyage(\'' + esc(v.id) + '\')">Complete</button>' : '')
+      + (done
+        ? '<span class="dval" style="margin-left:8px;color:' + (pnl >= 0 ? 'var(--green)' : 'var(--red)') + '">' + esc(money(pnl, true)) + '</span>'
+        : '<button class="btn btn-s" style="font-size:11px;padding:4px 8px;margin-left:8px;" onclick="openCompleteVoyage(\'' + esc(v.id) + '\')">Close with actuals</button>')
       + '</div>';
   }).join('');
 }
 
-function completeVoyage(id) {
+function invoicesForVoyage(vo) {
+  if (!vo) return [];
+  var start = new Date(vo.departDate || vo.createdAt).getTime();
+  var end = vo.completedAt ? new Date(vo.completedAt).getTime() : Date.now();
+  return getInvoices().filter(function (i) {
+    if (vo.vesselMmsi && String(i.vesselMmsi) !== String(vo.vesselMmsi)) return false;
+    var t = new Date(i.createdAt).getTime();
+    return t >= start - 86400000 && t <= end + 86400000;
+  });
+}
+
+function sumInv(list, cat) {
+  return list.reduce(function (s, i) {
+    if (cat && i.category !== cat) return s;
+    return s + (Number(i.amountUSD) || 0);
+  }, 0);
+}
+
+function openCompleteVoyage(id) {
+  var vo = getVoyages().find(function (v) { return v.id === id; });
+  if (!vo) return;
+  var inv = invoicesForVoyage(vo);
+  $('cv-id').value = vo.id;
+  $('cv-title').textContent = 'Close ' + (vo.vesselName || 'voyage') + ' — ' + vo.from + ' → ' + vo.to;
+  $('cv-est').innerHTML =
+    er('Est. fuel', money(-vo.fuelCostUSD))
+    + er('Est. port dues', money(-vo.portDuesUSD))
+    + er('Est. agent', money(-vo.agentFeesUSD))
+    + er('Est. revenue', money(vo.revenueUSD, true))
+    + er('Est. P&L', money(vo.profitUSD, true));
+  $('cv-fuel').value = Math.round(sumInv(inv, 'fuel') || vo.fuelCostUSD);
+  $('cv-port').value = Math.round(sumInv(inv, 'port_dues') || vo.portDuesUSD);
+  $('cv-agent').value = Math.round(sumInv(inv, 'agent_fees') || vo.agentFeesUSD);
+  $('cv-other').value = Math.round(sumInv(inv, 'other'));
+  $('cv-rev').value = Math.round(vo.revenueUSD);
+  $('cv-inv-note').textContent = inv.length
+    ? inv.length + ' invoice(s) on this vessel in the voyage window were used as a starting point. Edit before saving.'
+    : 'No invoices on this vessel yet — starting from the estimate. Log invoices any time.';
+  previewCompleteActuals();
+  $('cv-modal').style.display = 'flex';
+}
+
+function closeCompleteModal() { $('cv-modal').style.display = 'none'; }
+
+function previewCompleteActuals() {
+  var fuel = parseFloat($('cv-fuel').value) || 0;
+  var port = parseFloat($('cv-port').value) || 0;
+  var agent = parseFloat($('cv-agent').value) || 0;
+  var other = parseFloat($('cv-other').value) || 0;
+  var rev = parseFloat($('cv-rev').value) || 0;
+  var profit = Math.round(rev - fuel - port - agent - other);
+  var margin = rev > 0 ? Math.round((profit / rev) * 100) : 0;
+  var id = $('cv-id').value;
+  var vo = getVoyages().find(function (v) { return v.id === id; }) || {};
+  var delta = profit - (vo.profitUSD || 0);
+  if ($('cv-result')) {
+    $('cv-result').innerHTML =
+      er('Actual P&L', '<span style="color:' + (profit >= 0 ? 'var(--green)' : 'var(--red)') + ';">' + (profit >= 0 ? '+' : '-') + '$' + Math.abs(profit).toLocaleString() + '</span>')
+      + er('Margin', margin + '%')
+      + er('Vs estimate', (delta >= 0 ? '+' : '-') + '$' + Math.abs(delta).toLocaleString());
+  }
+}
+
+function saveCompleteVoyage() {
+  var id = $('cv-id').value;
+  var fuel = parseFloat($('cv-fuel').value) || 0;
+  var port = parseFloat($('cv-port').value) || 0;
+  var agent = parseFloat($('cv-agent').value) || 0;
+  var other = parseFloat($('cv-other').value) || 0;
+  var rev = parseFloat($('cv-rev').value) || 0;
+  var profit = Math.round(rev - fuel - port - agent - other);
+  var margin = rev > 0 ? Math.round((profit / rev) * 100) : 0;
   saveVoyages(getVoyages().map(function (v) {
-    if (v.id === id) return Object.assign({}, v, { status: 'completed', completedAt: new Date().toISOString() });
-    return v;
+    if (v.id !== id) return v;
+    return Object.assign({}, v, {
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      estimateProfitUSD: v.profitUSD,
+      actualFuelCostUSD: fuel,
+      actualPortDuesUSD: port,
+      actualAgentFeesUSD: agent,
+      actualOtherUSD: other,
+      actualRevenueUSD: rev,
+      actualProfitUSD: profit,
+      actualMarginPct: margin
+    });
   }));
+  closeCompleteModal();
   renderVoyageLog();
   refreshDashboard();
-  showToast('Voyage completed', 'green');
+  showToast('Voyage closed — actual P&L ' + money(profit, true), profit >= 0 ? 'green' : 'amber');
+}
+
+function completeVoyage(id) {
+  openCompleteVoyage(id);
 }
 
 // ════════════════════════════════════════════════════
@@ -1049,6 +1255,7 @@ function renderInvoices() {
 
 function openInvoiceModal() {
   fillSelect($('i-vessel'), getFleet(), true);
+  fillPortSelect($('i-port'), $('i-port') && $('i-port').value || 'Bergen');
   $('i-vendor').value = '';
   $('i-amt').value = '';
   if ($('i-text')) $('i-text').value = '';
@@ -1083,6 +1290,8 @@ function saveInvoice() {
     port: $('i-port').value, vesselMmsi: mmsi, vesselName: v ? v.name : '',
     status: $('i-status').value, createdAt: new Date().toISOString(), source: 'user'
   };
+  var voy = mmsi ? voyageFor(mmsi) : null;
+  if (voy) rec.voyageId = voy.id;
   var list = getInvoices();
   list.unshift(rec);
   saveInvoices(list);
@@ -1107,7 +1316,10 @@ function selType(el) {
   else if (alertType === 'custom') $('af-text').classList.add('on');
 }
 
-function renderAlertVesselSelect() { fillSelect($('a-vessel'), getFleet(), false); }
+function renderAlertVesselSelect() {
+  fillSelect($('a-vessel'), getFleet(), false);
+  fillPortSelect($('a-port'), $('a-port') && $('a-port').value || 'Rotterdam');
+}
 
 function addAlert() {
   var name = $('an').value.trim();
@@ -1265,6 +1477,8 @@ function renderSettings() {
   setToggle($('n-stale'), settings.notify.stale);
   setToggle($('n-sample'), settings.sample);
   renderServerStatus();
+  renderCustomPorts();
+  fillPortSelect($('port-from'), $('port-from') && $('port-from').value || 'Bergen');
 }
 
 function paintKey(dotId, displayId, key) {
@@ -1292,6 +1506,8 @@ function saveAISKey() {
 
 function clearAISKey() {
   if (!confirm('Remove AIS key and disconnect?')) return;
+  aisWanted = false;
+  clearTimeout(aisRetryTimer);
   lsDel(KEY_AIS);
   disconnectAIS();
   dashVessels = {};
@@ -1447,9 +1663,108 @@ function loadSample() {
 
 function clearAllData() {
   if (!confirm('Clear ALL local data? This removes your AIS key, fleet, voyages, invoices and settings.')) return;
+  aisWanted = false;
+  clearTimeout(aisRetryTimer);
   try { localStorage.clear(); } catch (e) {}
   showToast('All local data cleared', 'red');
   setTimeout(function () { location.reload(); }, 1200);
+}
+
+function downloadBackup() {
+  var payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    app: 'navprofit',
+    store: collectStore(),
+    aisKey: lsGet(KEY_AIS, '') || ''
+  };
+  var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'navprofit-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  showToast('✓ Backup downloaded — keep it on this PC or a USB stick', 'green');
+}
+
+function pickRestoreFile() {
+  var input = $('backup-file');
+  if (input) input.click();
+}
+
+function restoreBackupFile(input) {
+  var file = input && input.files && input.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    try {
+      var payload = JSON.parse(reader.result);
+      var store = payload.store || payload;
+      if (!store || (!store.fleet && !store.voyages && !Array.isArray(store.fleet))) {
+        throw new Error('Not a NavProfit backup');
+      }
+      if (!confirm('Replace local fleet, voyages, invoices and ports with this backup?')) return;
+      applyStore(store);
+      if (payload.aisKey) {
+        lsSet(KEY_AIS, payload.aisKey);
+        connectAIS(payload.aisKey);
+      }
+      fillAllPortSelects();
+      renderSettings();
+      showToast('✓ Backup restored', 'green');
+    } catch (e) {
+      showToast('Could not read that file', 'red');
+    }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function renderCustomPorts() {
+  var el = $('custom-ports');
+  if (!el) return;
+  var legs = getCustomLegs();
+  if (!legs.length) {
+    el.innerHTML = '<div class="settings-sub">No extra ports yet. Add a pair you actually steam.</div>';
+    return;
+  }
+  el.innerHTML = legs.map(function (leg, i) {
+    return '<div class="settings-row"><div><div class="settings-label">' + esc(leg.a) + ' ↔ ' + esc(leg.b) + '</div><div class="settings-sub">' + esc(leg.nm) + ' nm</div></div>'
+      + '<button class="btn btn-s" style="font-size:11px;padding:4px 8px;" onclick="removeCustomLeg(' + i + ')">Remove</button></div>';
+  }).join('');
+}
+
+function addCustomPort() {
+  var name = ($('port-name') && $('port-name').value.trim()) || '';
+  var from = $('port-from') && $('port-from').value;
+  var nm = parseFloat($('port-nm') && $('port-nm').value);
+  if (!name || !from || !(nm > 0) || name === from) {
+    showToast('Name the port, pick a known port, and enter nm', 'amber');
+    return;
+  }
+  var legs = getCustomLegs();
+  var exists = legs.findIndex(function (leg) {
+    return (leg.a === name && leg.b === from) || (leg.a === from && leg.b === name);
+  });
+  var rec = { a: name, b: from, nm: Math.round(nm) };
+  if (exists >= 0) legs[exists] = rec;
+  else legs.push(rec);
+  saveCustomLegs(legs);
+  if ($('port-name')) $('port-name').value = '';
+  if ($('port-nm')) $('port-nm').value = '';
+  fillAllPortSelects();
+  renderCustomPorts();
+  syncDistanceField();
+  showToast('✓ ' + name + ' added · ' + rec.nm + ' nm from ' + from, 'green');
+}
+
+function removeCustomLeg(i) {
+  var legs = getCustomLegs();
+  legs.splice(i, 1);
+  saveCustomLegs(legs);
+  fillAllPortSelects();
+  renderCustomPorts();
+  syncDistanceField();
 }
 
 // ════════════════════════════════════════════════════
@@ -1471,7 +1786,7 @@ function buildChart() {
   var gridColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-grid').trim();
   var textColor = getComputedStyle(document.documentElement).getPropertyValue('--chart-text').trim();
   var running = 0;
-  var data = vos.map(function (v) { running += v.profitUSD || 0; return Math.round(running * (FX[cur] || FX.USD).r); });
+  var data = vos.map(function (v) { running += voyagePnl(v); return Math.round(running * (FX[cur] || FX.USD).r); });
   pnlChart = new Chart(canvas, {
     type: 'line',
     data: {
@@ -1554,6 +1869,7 @@ function collectStore() {
     alerts: getAlerts(),
     notifs: getNotifs(),
     settings: settings,
+    ports: getCustomLegs(),
     keys: { oil: lsGet(KEY_OIL, '') || '', anthropic: lsGet(KEY_AI, '') || '' }
   };
 }
@@ -1566,6 +1882,7 @@ function applyStore(store) {
   if (store.invoices) lsSet(KEY_INVOICES, store.invoices);
   if (store.alerts) lsSet(KEY_ALERTS, store.alerts);
   if (store.notifs) lsSet(KEY_NOTIFS, store.notifs);
+  if (Array.isArray(store.ports)) lsSet(KEY_PORTS, store.ports);
   if (store.keys) {
     if (store.keys.oil) lsSet(KEY_OIL, store.keys.oil);
     else lsDel(KEY_OIL);
@@ -1582,6 +1899,7 @@ function applyStore(store) {
     setTheme(settings.theme || (isDark ? 'dark' : 'light'));
   }
   hydrating = false;
+  fillAllPortSelects();
   renderFleet();
   renderVoyageLog();
   renderAlerts();
@@ -1785,6 +2103,8 @@ function applyFx(payload) {
 document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
 $('curr-sel').value = cur;
 if ($('f-date') && !$('f-date').value) $('f-date').value = new Date().toISOString().slice(0, 10);
+fillAllPortSelects();
+syncDistanceField();
 initMap();
 setTheme(isDark ? 'dark' : 'light');
 renderBunkerTable();

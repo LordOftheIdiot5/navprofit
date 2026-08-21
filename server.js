@@ -233,6 +233,7 @@ app.put('/api/store', (req, res) => {
     alerts: store.alerts || [],
     notifs: store.notifs || [],
     settings: store.settings || {},
+    ports: Array.isArray(store.ports) ? store.ports : [],
     keys: {
       oil: store.keys && store.keys.oil ? String(store.keys.oil) : '',
       anthropic: store.keys && store.keys.anthropic ? String(store.keys.anthropic) : ''
