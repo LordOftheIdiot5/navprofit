@@ -33,20 +33,24 @@
 - [x] Custom ports and typed nautical miles
 - [x] AIS auto-reconnect
 - [x] One-click start (`start.bat` / `start.sh`)
+- [x] Export voyages / invoices / fleet to Excel (CSV)
+- [x] Print voyage estimate vs actual
+- [x] Log invoice against a voyage
+- [x] Cash strip: expected freight vs open invoices
+- [x] AIS arrival when a vessel is near the voyage destination
 
 ### Next
-- [ ] Arrival/departure detection against destination port
 - [ ] Historical price chart per port
+
+Do **not** add Veson-style modules (laytime, demurrage, paper trades, Tripletex). Beat the spreadsheet first.
 
 Standalone is the default. A hosted database is optional later if NavProfit is offered as a cloud service — not required for one operator on one PC.
 
 ## Phase 3 — Hosted backend
 
 - [x] Local accounts + JSON store (`data/`)
-- [ ] Database (PostgreSQL or Appwrite)
-- [ ] Voyage history stored permanently off-box
-- [ ] Invoice archive
-- [ ] Export to CSV / Excel
+- [x] Export to CSV / Excel
+- [ ] Database (PostgreSQL or Appwrite) — only if hosted later
 
 ---
 
