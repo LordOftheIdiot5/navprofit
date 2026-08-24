@@ -349,6 +349,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
     <div class="insight-ico">◈</div>
     <div class="insight-text" id="insight-text">Add a vessel and create a voyage to start live P&amp;L tracking.</div>
   </div>
+  <div class="panel" id="cash-strip" style="display:none;align-items:stretch;justify-content:space-around;padding:12px 16px;margin-bottom:14px;gap:16px;"></div>
 
   <!-- MAP (full height) + VESSEL DETAIL -->
   <div class="grid-2" style="margin-bottom:12px;align-items:stretch;">
@@ -482,7 +483,9 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
     </div>
   </div>
   <div class="panel" style="margin-top:12px;">
-    <div class="ph"><div class="ph-title">Created voyages</div></div>
+    <div class="ph"><div class="ph-title">Created voyages</div>
+      <button class="btn btn-s" style="font-size:11px;padding:4px 10px;" onclick="exportExcel()">Export Excel</button>
+    </div>
     <div id="voyage-log" style="padding:12px 16px;"><div style="color:var(--muted);font-size:13px;text-align:center;padding:12px 0;">No voyages created yet</div></div>
   </div>
 </div>
@@ -711,6 +714,10 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
           <button class="toggle off" id="n-sample" onclick="toggleSample(this)"><div class="tthumb"></div></button>
         </div>
         <div class="settings-row">
+          <div><div class="settings-label">Excel</div><div class="settings-sub">Voyages, invoices and fleet as CSV (opens in Excel). Semicolon-separated for Norwegian Excel.</div></div>
+          <button class="btn btn-s" onclick="exportExcel()">Export to Excel</button>
+        </div>
+        <div class="settings-row">
           <div><div class="settings-label">Backup</div><div class="settings-sub">Download a JSON file of this operator’s data. Includes API keys — keep it private.</div></div>
           <button class="btn btn-s" onclick="downloadBackup()">Download backup</button>
         </div>
@@ -765,7 +772,7 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
       <div class="settings-body">
         <div class="settings-row">
           <div><div class="settings-label">Version</div></div>
-          <div class="key-display">0.5.0 — standalone</div>
+          <div class="key-display">0.6.0 — Excel export</div>
         </div>
         <div class="settings-row">
           <div><div class="settings-label">Data sources</div></div>
@@ -832,7 +839,8 @@ html,body{background:var(--bg);min-height:100vh;color:var(--text);font-family:'D
           </select>
         </div>
         <div class="fg"><label class="flabel">Port</label><select class="fselect" id="i-port"></select></div>
-        <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="i-vessel"><option value="">— Optional —</option></select></div>
+        <div class="fg"><label class="flabel">Vessel</label><select class="fselect" id="i-vessel" onchange="fillInvoiceVoyages()"><option value="">— Optional —</option></select></div>
+        <div class="fg"><label class="flabel">Voyage</label><select class="fselect" id="i-voyage"><option value="">— Optional —</option></select></div>
         <div class="fg"><label class="flabel">Status</label><select class="fselect" id="i-status"><option value="pending">Pending</option><option value="paid">Paid</option></select></div>
       </div>
     </div>

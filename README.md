@@ -25,6 +25,7 @@ Open http://localhost:3000
 3. Click a ship → **Add to fleet** → Voyage planner → **Create voyage**.
 4. When the voyage is done, **Close with actuals** (fuel / port / agent vs the estimate).
 5. Settings → **Download backup** now and then. Restore from that file if this PC is replaced.
+6. **Export to Excel** (Settings or Voyage planner) when you still need a spreadsheet. Print a voyage sheet for the owner.
 
 NavProfit does not ship a shared OilPrice or Claude key. Each user brings their own, or skips those features. A key in `.env` is only an optional fallback for the installer.
 
@@ -42,6 +43,7 @@ There is no hosted database. Everything lives on this machine (`data/` when sign
 | Invoice AI | Your Anthropic key in Settings (optional) |
 | Accounts + sync | Email/password on this server (`data/`) |
 | Backup file | Settings → Download backup / Restore |
+| Excel | Settings → Export to Excel (CSV) |
 
 Your OilPrice and Anthropic keys are sent to this NavProfit server only to proxy the vendor APIs (browsers block those calls directly). If you sign in, they are stored on your account on this machine — not shared with other users.
 
@@ -72,4 +74,5 @@ navprofit/
 🟢 Backup / restore JSON on this PC  
 🟢 Close voyage with actuals vs estimate  
 🟢 Extra ports + typed nautical miles  
+🟢 Export to Excel + print voyage sheet  
 🟡 Hosted multi-tenant database — not planned for the standalone install  

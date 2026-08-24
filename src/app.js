@@ -73,6 +73,16 @@ var HOME_PORTS = {
   'New York, USA': [40.68, -74.04]
 };
 
+var PORT_COORDS = {
+  Bergen: [60.39, 5.32], Stavanger: [58.97, 5.73], Ålesund: [62.47, 6.15],
+  Kristiansund: [63.11, 7.73], Trondheim: [63.43, 10.40], Bodø: [67.29, 14.40],
+  Tromsø: [69.65, 18.96], Hammerfest: [70.66, 23.68], Kirkenes: [69.73, 30.05],
+  Oslo: [59.91, 10.75], Haugesund: [59.41, 5.27],
+  Rotterdam: [51.92, 4.48], Singapore: [1.26, 103.85], Dubai: [25.27, 55.30],
+  Istanbul: [41.01, 28.98], Houston: [29.73, -95.27], Tokyo: [35.63, 139.80],
+  'New York': [40.68, -74.04], Fujairah: [25.12, 56.33]
+};
+
 var REGIONS = {
   norway: [[56, 3], [72, 32]],
   north_sea: [[50, -5], [62, 13]],
@@ -170,6 +180,26 @@ function utcNow() {
 function shortDate(iso) {
   var d = iso ? new Date(iso) : new Date();
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+}
+
+function haversineNm(lat1, lon1, lat2, lon2) {
+  var R = 3440.065;
+  var toRad = function (d) { return d * Math.PI / 180; };
+  var dLat = toRad(lat2 - lat1);
+  var dLon = toRad(lon2 - lon1);
+  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function portCoords(name) {
+  return PORT_COORDS[name] || null;
+}
+
+function nmToPort(lat, lon, portName) {
+  var c = portCoords(portName);
+  if (!c || lat == null || lon == null) return null;
+  return haversineNm(Number(lat), Number(lon), c[0], c[1]);
 }
 
 function getCustomLegs() { return lsGet(KEY_PORTS, []); }
@@ -695,6 +725,26 @@ function renderKPIs() {
   $('kpi-alerts').textContent = triggered.length;
   $('kpi-alerts').className = 'kpi-val' + (triggered.length ? ' r' : '');
   $('kpi-alerts-sub').textContent = triggered.length ? 'triggered now' : 'none triggered';
+  renderCashStrip();
+}
+
+function renderCashStrip() {
+  var el = $('cash-strip');
+  if (!el) return;
+  var active = getVoyages().filter(function (v) { return v.status === 'active'; });
+  var pending = getInvoices().filter(function (i) { return i.status === 'pending'; });
+  var freight = active.reduce(function (s, v) { return s + (Number(v.revenueUSD) || 0); }, 0);
+  var openInv = pending.reduce(function (s, i) { return s + (Number(i.amountUSD) || 0); }, 0);
+  var net = freight - openInv;
+  if (!active.length && !pending.length) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'flex';
+  el.innerHTML =
+    '<div><div class="dlabel">Expected freight (active)</div><div class="dval" style="color:var(--green)">' + esc(money(freight, true)) + '</div></div>'
+    + '<div><div class="dlabel">Open invoices</div><div class="dval" style="color:var(--red)">' + esc(money(-openInv)) + '</div></div>'
+    + '<div><div class="dlabel">Net if collected / paid</div><div class="dval" style="color:' + (net >= 0 ? 'var(--green)' : 'var(--red)') + '">' + esc(money(net, true)) + '</div></div>';
 }
 
 function renderInsight() {
@@ -1127,9 +1177,11 @@ function renderVoyageLog() {
     if (done && Number.isFinite(Number(v.actualProfitUSD))) {
       meta += ' · actual ' + esc(money(v.actualProfitUSD, true));
     }
+    if (v.arrivedAt) meta += ' · arrived ' + esc(shortDate(v.arrivedAt));
     return '<div class="irow"><div class="iico iico-a">🚢</div><div style="flex:1;"><div class="iname">' + esc(v.vesselName) + ' — ' + esc(v.from) + ' → ' + esc(v.to) + '</div>'
       + '<div class="imeta">' + meta + '</div></div>'
       + '<span class="pill ' + pill + '</span>'
+      + '<button class="btn btn-s" style="font-size:11px;padding:4px 8px;margin-left:8px;" onclick="printVoyage(\'' + esc(v.id) + '\')">Print</button>'
       + (done
         ? '<span class="dval" style="margin-left:8px;color:' + (pnl >= 0 ? 'var(--green)' : 'var(--red)') + '">' + esc(money(pnl, true)) + '</span>'
         : '<button class="btn btn-s" style="font-size:11px;padding:4px 8px;margin-left:8px;" onclick="openCompleteVoyage(\'' + esc(v.id) + '\')">Close with actuals</button>')
@@ -1142,6 +1194,7 @@ function invoicesForVoyage(vo) {
   var start = new Date(vo.departDate || vo.createdAt).getTime();
   var end = vo.completedAt ? new Date(vo.completedAt).getTime() : Date.now();
   return getInvoices().filter(function (i) {
+    if (i.voyageId && i.voyageId === vo.id) return true;
     if (vo.vesselMmsi && String(i.vesselMmsi) !== String(vo.vesselMmsi)) return false;
     var t = new Date(i.createdAt).getTime();
     return t >= start - 86400000 && t <= end + 86400000;
@@ -1249,18 +1302,37 @@ function renderInvoices() {
     var pill = i.status === 'paid' ? '<span class="pill pill-g" style="font-size:9px;">Paid</span>' : '<span class="pill pill-a" style="font-size:9px;">Pending</span>';
     var cat = i.category || 'other';
     return '<div class="irow"><div class="iico ' + (ico[cat] || ico.other) + '</div><div style="flex:1;"><div class="iname">' + esc(i.vendor) + (i.port ? ' — ' + esc(i.port) : '') + '</div>'
-      + '<div class="imeta">' + esc(i.vesselName || 'Fleet') + ' · ' + esc(shortDate(i.createdAt)) + '</div></div><div><div class="iamt">' + esc(money(-i.amountUSD)) + '</div>' + pill + '</div></div>';
+      + '<div class="imeta">' + esc(i.vesselName || 'Fleet') + (i.voyageName ? ' · ' + esc(i.voyageName) : '') + ' · ' + esc(shortDate(i.createdAt)) + '</div></div><div><div class="iamt">' + esc(money(-i.amountUSD)) + '</div>' + pill + '</div></div>';
   }).join('');
 }
 
 function openInvoiceModal() {
   fillSelect($('i-vessel'), getFleet(), true);
   fillPortSelect($('i-port'), $('i-port') && $('i-port').value || 'Bergen');
+  fillInvoiceVoyages();
   $('i-vendor').value = '';
   $('i-amt').value = '';
   if ($('i-text')) $('i-text').value = '';
   if ($('i-file')) $('i-file').value = '';
   $('inv-modal').style.display = 'flex';
+}
+
+function fillInvoiceVoyages() {
+  var sel = $('i-voyage');
+  if (!sel) return;
+  var mmsi = $('i-vessel') && $('i-vessel').value;
+  var list = getVoyages().filter(function (v) {
+    return !mmsi || String(v.vesselMmsi) === String(mmsi);
+  });
+  sel.innerHTML = '<option value="">— Optional —</option>';
+  list.forEach(function (v) {
+    var o = document.createElement('option');
+    o.value = v.id;
+    o.textContent = (v.status === 'active' ? '● ' : '') + v.vesselName + ' · ' + v.from + ' → ' + v.to;
+    sel.appendChild(o);
+  });
+  var active = list.find(function (v) { return v.status === 'active'; });
+  if (active) sel.value = active.id;
 }
 function closeInvoiceModal() { $('inv-modal').style.display = 'none'; }
 
@@ -1290,8 +1362,16 @@ function saveInvoice() {
     port: $('i-port').value, vesselMmsi: mmsi, vesselName: v ? v.name : '',
     status: $('i-status').value, createdAt: new Date().toISOString(), source: 'user'
   };
-  var voy = mmsi ? voyageFor(mmsi) : null;
-  if (voy) rec.voyageId = voy.id;
+  var voyId = $('i-voyage') && $('i-voyage').value;
+  var voy = voyId ? getVoyages().find(function (x) { return x.id === voyId; }) : (mmsi ? voyageFor(mmsi) : null);
+  if (voy) {
+    rec.voyageId = voy.id;
+    rec.voyageName = voy.from + ' → ' + voy.to;
+    if (!mmsi && voy.vesselMmsi) {
+      rec.vesselMmsi = voy.vesselMmsi;
+      rec.vesselName = voy.vesselName;
+    }
+  }
   var list = getInvoices();
   list.unshift(rec);
   saveInvoices(list);
@@ -1413,7 +1493,27 @@ function renderNotifs() {
   }).join('');
 }
 
+function evaluateVoyageArrivals() {
+  var changed = false;
+  var list = getVoyages().map(function (vo) {
+    if (vo.status !== 'active' || vo.arrivedAt) return vo;
+    var live = dashVessels[String(vo.vesselMmsi)];
+    if (!live || live.lat == null || live.lon == null) return vo;
+    var nm = nmToPort(live.lat, live.lon, vo.to);
+    var slow = (live.speedKnots || 0) < 1.5 || live.navStatus === 1 || live.navStatus === 5;
+    if (nm == null || nm > 8 || !slow) return vo;
+    changed = true;
+    pushNotif('cyan', vo.vesselName + ' arrived ' + vo.to + ' (' + nm.toFixed(1) + ' nm, ' + (live.speedKnots || 0).toFixed(1) + ' kn)', 'arrival');
+    return Object.assign({}, vo, { arrivedAt: new Date().toISOString(), arrivalNm: Math.round(nm * 10) / 10 });
+  });
+  if (changed) {
+    saveVoyages(list);
+    renderVoyageLog();
+  }
+}
+
 function evaluateAlerts() {
+  evaluateVoyageArrivals();
   var prefs = settings.notify;
   var alerts = getAlerts();
   var changed = false;
@@ -1432,7 +1532,13 @@ function evaluateAlerts() {
       if (fire) msg = bad.map(function (v) { return v.vesselName + ' margin ' + v.marginPct + '%'; }).join('; ') + ' (threshold ' + a.threshold + '%).';
     } else if (a.type === 'arrival' && prefs.arrival) {
       var live = dashVessels[String(a.vesselMmsi)];
-      if (live) {
+      var vo = voyageFor(a.vesselMmsi);
+      if (live && vo) {
+        var nm = nmToPort(live.lat, live.lon, vo.to);
+        var slow = (live.speedKnots || 0) < 1.5 || live.navStatus === 1 || live.navStatus === 5;
+        fire = nm != null && nm <= 8 && slow;
+        if (fire) msg = (live.name || a.name) + ' is ' + nm.toFixed(1) + ' nm from ' + vo.to + ' at ' + (live.speedKnots || 0).toFixed(1) + ' kn.';
+      } else if (live) {
         var stopped = (live.speedKnots || 0) < 0.5 || live.navStatus === 1 || live.navStatus === 5;
         fire = stopped;
         msg = (live.name || a.name) + ' is ' + navName(live.navStatus) + ' at ' + (live.speedKnots || 0).toFixed(1) + ' kn.';
@@ -1685,6 +1791,78 @@ function downloadBackup() {
   a.click();
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
   showToast('✓ Backup downloaded — keep it on this PC or a USB stick', 'green');
+}
+
+function csvCell(v) {
+  var s = String(v == null ? '' : v);
+  if (/[";\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
+function downloadCsv(filename, rows) {
+  var body = rows.map(function (r) { return r.map(csvCell).join(';'); }).join('\r\n');
+  var blob = new Blob(['\uFEFF' + body], { type: 'text/csv;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+}
+
+function exportExcel() {
+  var day = new Date().toISOString().slice(0, 10);
+  var voyages = [['Vessel', 'From', 'To', 'Status', 'Depart', 'Cargo MT', 'Rate USD/MT', 'Distance nm', 'Est revenue USD', 'Est P&L USD', 'Actual P&L USD', 'Arrived']].concat(
+    getVoyages().map(function (v) {
+      return [v.vesselName, v.from, v.to, v.status, v.departDate || '', v.cargoMT, v.freightRateUSD, v.distanceNM, v.revenueUSD, v.profitUSD, v.actualProfitUSD || '', v.arrivedAt ? v.arrivedAt.slice(0, 10) : ''];
+    })
+  );
+  var invoices = [['Date', 'Vendor', 'Category', 'Port', 'Vessel', 'Voyage', 'Amount USD', 'Status']].concat(
+    getInvoices().map(function (i) {
+      return [shortDate(i.createdAt), i.vendor, i.category, i.port, i.vesselName, i.voyageName || '', i.amountUSD, i.status];
+    })
+  );
+  var fleet = [['Name', 'MMSI', 'IMO', 'Type', 'Flag', 'Speed kn', 'Burn MT/day']].concat(
+    getFleet().map(function (v) {
+      return [v.name, v.mmsi, v.imo, v.type, v.flag, v.speed, v.fuel];
+    })
+  );
+  downloadCsv('navprofit-voyages-' + day + '.csv', voyages);
+  setTimeout(function () { downloadCsv('navprofit-invoices-' + day + '.csv', invoices); }, 250);
+  setTimeout(function () { downloadCsv('navprofit-fleet-' + day + '.csv', fleet); }, 500);
+  showToast('✓ Excel files downloaded (semicolon CSV)', 'green');
+}
+
+function printVoyage(id) {
+  var vo = getVoyages().find(function (v) { return v.id === id; });
+  if (!vo) return;
+  var inv = invoicesForVoyage(vo);
+  var actual = Number.isFinite(Number(vo.actualProfitUSD));
+  var rows = function (label, est, act) {
+    return '<tr><td>' + esc(label) + '</td><td>' + esc(est) + '</td><td>' + esc(act) + '</td></tr>';
+  };
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>' + esc(vo.vesselName) + ' voyage</title>'
+    + '<style>body{font-family:sans-serif;color:#111;padding:32px;max-width:720px}h1{font-size:20px;margin:0 0 6px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border-bottom:1px solid #ddd;padding:8px 6px;text-align:left;font-size:13px}th{color:#555} .muted{color:#666;font-size:12px}</style></head><body>'
+    + '<p class="muted">NavProfit · ' + esc(new Date().toISOString().slice(0, 16).replace('T', ' ')) + ' UTC</p>'
+    + '<h1>' + esc(vo.vesselName) + ' — ' + esc(vo.from) + ' → ' + esc(vo.to) + '</h1>'
+    + '<p class="muted">' + esc(vo.status) + (vo.departDate ? ' · depart ' + esc(vo.departDate) : '') + (vo.arrivedAt ? ' · arrived ' + esc(vo.arrivedAt.slice(0, 10)) : '') + '</p>'
+    + '<table><thead><tr><th></th><th>Estimate</th><th>Actual</th></tr></thead><tbody>'
+    + rows('Revenue', money(vo.revenueUSD, true), actual ? money(vo.actualRevenueUSD, true) : '—')
+    + rows('Fuel', money(-vo.fuelCostUSD), actual ? money(-vo.actualFuelCostUSD) : '—')
+    + rows('Port dues', money(-vo.portDuesUSD), actual ? money(-vo.actualPortDuesUSD) : '—')
+    + rows('Agent', money(-vo.agentFeesUSD), actual ? money(-vo.actualAgentFeesUSD) : '—')
+    + rows('Other', '—', actual ? money(-(vo.actualOtherUSD || 0)) : '—')
+    + rows('P&L', money(vo.profitUSD, true), actual ? money(vo.actualProfitUSD, true) : '—')
+    + '</tbody></table>'
+    + (inv.length ? '<h1 style="margin-top:28px">Invoices</h1><table><thead><tr><th>Vendor</th><th>Category</th><th>Amount</th></tr></thead><tbody>'
+      + inv.map(function (i) { return '<tr><td>' + esc(i.vendor) + '</td><td>' + esc(i.category) + '</td><td>' + esc(money(-i.amountUSD)) + '</td></tr>'; }).join('')
+      + '</tbody></table>' : '')
+    + '</body></html>';
+  var w = window.open('', '_blank');
+  if (!w) { showToast('Allow pop-ups to print', 'amber'); return; }
+  w.document.write(html);
+  w.document.close();
+  w.focus();
+  setTimeout(function () { w.print(); }, 250);
 }
 
 function pickRestoreFile() {

@@ -1,6 +1,6 @@
 {
   "name": "navprofit",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Maritime voyage financial intelligence platform",
   "private": true,
   "scripts": {
